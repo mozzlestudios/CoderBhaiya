@@ -1,187 +1,318 @@
-# Rewriting Project Claw Code
+# CoderBhaiya
 
 <p align="center">
-  <img src="assets/clawd-hero.jpeg" alt="Claw" width="300" />
+  <strong>A fully functional AI agent harness with multi-provider LLM support, real tool execution, and agent sub-spawning</strong>
 </p>
 
 <p align="center">
-  <strong>Better Harness Tools, not merely storing the archive of leaked Claude Code</strong>
+  <a href="#quickstart"><img src="https://img.shields.io/badge/Get%20Started-blue?style=for-the-badge" alt="Get Started" /></a>
+  <a href="#live-mode"><img src="https://img.shields.io/badge/Live%20Mode-green?style=for-the-badge" alt="Live Mode" /></a>
+  <a href="#providers"><img src="https://img.shields.io/badge/5%20LLM%20Providers-purple?style=for-the-badge" alt="5 Providers" /></a>
 </p>
-
-<p align="center">
-  <a href="https://github.com/sponsors/instructkr"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github&style=for-the-badge" alt="Sponsor on GitHub" /></a>
-</p>
-
-> [!IMPORTANT]
-> **Rust port is now in progress** on the [`dev/rust`](https://github.com/instructkr/claw-code/tree/dev/rust) branch and is expected to be merged into main today. The Rust implementation aims to deliver a faster, memory-safe harness runtime. Stay tuned — this will be the definitive version of the project.
-
-> If you find this work useful, consider [sponsoring @instructkr on GitHub](https://github.com/sponsors/instructkr) to support continued open-source harness engineering research.
 
 ---
 
-## Backstory
+## What is this?
 
-At 4 AM on March 31, 2026, I woke up to my phone blowing up with notifications. The Claude Code source had been exposed, and the entire dev community was in a frenzy. My girlfriend in Korea was genuinely worried I might face legal action from Anthropic just for having the code on my machine — so I did what any engineer would do under pressure: I sat down, ported the core features to Python from scratch, and pushed it before the sun came up.
+CoderBhaiya is a Python agent harness that can connect to **any LLM provider** and execute real developer tools — file reads, writes, edits, bash commands, grep, glob, and even spawn sub-agents. Think of it as a from-scratch implementation of the agentic coding pattern: the LLM thinks, decides which tools to call, gets results back, and keeps going until the task is done.
 
-The whole thing was orchestrated end-to-end using [oh-my-codex (OmX)](https://github.com/Yeachan-Heo/oh-my-codex) by [@bellman_ych](https://x.com/bellman_ych) — a workflow layer built on top of OpenAI's Codex ([@OpenAIDevs](https://x.com/OpenAIDevs)). I used `$team` mode for parallel code review and `$ralph` mode for persistent execution loops with architect-level verification. The entire porting session — from reading the original harness structure to producing a working Python tree with tests — was driven through OmX orchestration.
+### Key capabilities
 
-The result is a clean-room Python rewrite that captures the architectural patterns of Claude Code's agent harness without copying any proprietary source. I'm now actively collaborating with [@bellman_ych](https://x.com/bellman_ych) — the creator of OmX himself — to push this further. The basic Python foundation is already in place and functional, but we're just getting started. **Stay tuned — a much more capable version is on the way.**
-
-https://github.com/instructkr/claw-code
-
-![Tweet screenshot](assets/tweet-screenshot.png)
-
-## The Creators Featured in Wall Street Journal For Avid Claude Code Fans
-
-I've been deeply interested in **harness engineering** — studying how agent systems wire tools, orchestrate tasks, and manage runtime context. This isn't a sudden thing. The Wall Street Journal featured my work earlier this month, documenting how I've been one of the most active power users exploring these systems:
-
-> AI startup worker Sigrid Jin, who attended the Seoul dinner, single-handedly used 25 billion of Claude Code tokens last year. At the time, usage limits were looser, allowing early enthusiasts to reach tens of billions of tokens at a very low cost.
->
-> Despite his countless hours with Claude Code, Jin isn't faithful to any one AI lab. The tools available have different strengths and weaknesses, he said. Codex is better at reasoning, while Claude Code generates cleaner, more shareable code.
->
-> Jin flew to San Francisco in February for Claude Code's first birthday party, where attendees waited in line to compare notes with Cherny. The crowd included a practicing cardiologist from Belgium who had built an app to help patients navigate care, and a California lawyer who made a tool for automating building permit approvals using Claude Code.
->
-> "It was basically like a sharing party," Jin said. "There were lawyers, there were doctors, there were dentists. They did not have software engineering backgrounds."
->
-> — *The Wall Street Journal*, March 21, 2026, [*"The Trillion Dollar Race to Automate Our Entire Lives"*](https://lnkd.in/gs9td3qd)
-
-![WSJ Feature](assets/wsj-feature.png)
+- **Multi-provider LLM support** — Anthropic (Claude), OpenAI (GPT-4o), Google Gemini, Ollama (local), LMStudio (local)
+- **7 real tools** — Read, Write, Edit, Bash, Grep, Glob, Agent (sub-spawning)
+- **Hook lifecycle** — 7 hook events (pre/post tool execution, session start/end, turn start/end, pre-compaction) with shell hook support
+- **Skill injection** — Load skill files from `~/.claude/skills/` or `./skills/` and inject into system prompts
+- **Agent sub-spawning** — Agents can spawn sub-agents with isolated tool sets and budgets (no infinite recursion)
+- **Reactive turn loop** — LLM responds with text or tool calls; harness executes tools, sends results back, repeats
+- **Interactive dashboard** — D3.js codebase explorer with animated flow diagrams, 4 view modes, zoom/pan
 
 ---
 
-## Porting Status
+## Architecture
 
-The main source tree is now Python-first.
-
-- `src/` contains the active Python porting workspace
-- `tests/` verifies the current Python workspace
-- the exposed snapshot is no longer part of the tracked repository state
-
-The current Python workspace is not yet a complete one-to-one replacement for the original system, but the primary implementation surface is now Python.
-
-## Why this rewrite exists
-
-I originally studied the exposed codebase to understand its harness, tool wiring, and agent workflow. After spending more time with the legal and ethical questions—and after reading the essay linked below—I did not want the exposed snapshot itself to remain the main tracked source tree.
-
-This repository now focuses on Python porting work instead.
-
-## Repository Layout
-
-```text
-.
-├── src/                                # Python porting workspace
-│   ├── __init__.py
-│   ├── commands.py
-│   ├── main.py
-│   ├── models.py
-│   ├── port_manifest.py
-│   ├── query_engine.py
-│   ├── task.py
-│   └── tools.py
-├── tests/                              # Python verification
-├── assets/omx/                         # OmX workflow screenshots
-├── 2026-03-09-is-legal-the-same-as-legitimate-ai-reimplementation-and-the-erosion-of-copyleft.md
-└── README.md
+```
+                          User Prompt
+                              |
+                        [PortRuntime]
+                         /    |    \
+                   Route   Bootstrap  Live Session
+                    |         |           |
+              Token Match   Setup    [TurnLoopRunner]
+              Commands +    Report      |
+              Tools          |     LLM.send() <---> Tool.execute()
+                             |          |               |
+                       [QueryEngine]    |        Read/Write/Edit/
+                                        |        Bash/Grep/Glob/Agent
+                                        |
+                                   Hook Lifecycle
+                                   (pre/post tool, session, turn)
 ```
 
-## Python Workspace Overview
+**Two-layer design:**
+- **Harness layer** — Intent routing, registry, lifecycle, permissions, session persistence
+- **Engine layer** — LLM turn loop, token management, tool execution, agent spawning
 
-The new Python `src/` tree currently provides:
-
-- **`port_manifest.py`** — summarizes the current Python workspace structure
-- **`models.py`** — dataclasses for subsystems, modules, and backlog state
-- **`commands.py`** — Python-side command port metadata
-- **`tools.py`** — Python-side tool port metadata
-- **`query_engine.py`** — renders a Python porting summary from the active workspace
-- **`main.py`** — a CLI entrypoint for manifest and summary output
+---
 
 ## Quickstart
 
-Render the Python porting summary:
+### Prerequisites
 
 ```bash
+# Python 3.11+
+python3 --version
+
+# Clone the repo
+git clone https://github.com/mozzlestudios/CoderBhaiya.git
+cd CoderBhaiya
+```
+
+### Explore the codebase (no LLM needed)
+
+```bash
+# Render the workspace summary
 python3 -m src.main summary
-```
 
-Print the current Python workspace manifest:
+# List mirrored commands and tools
+python3 -m src.main commands --limit 10
+python3 -m src.main tools --limit 10
 
-```bash
-python3 -m src.main manifest
-```
+# Route a prompt to matching commands/tools
+python3 -m src.main route "read the readme file"
 
-List the current Python modules:
-
-```bash
-python3 -m src.main subsystems --limit 16
-```
-
-Run verification:
-
-```bash
+# Run verification tests
 python3 -m unittest discover -s tests -v
 ```
 
-Run the parity audit against the local ignored archive (when present):
+### Open the interactive dashboard
 
 ```bash
-python3 -m src.main parity-audit
+open dashboard.html
+# Or just double-click dashboard.html in your file browser
 ```
 
-Inspect mirrored command/tool inventories:
+---
+
+## Live Mode
+
+Live mode connects to a real LLM and executes real tools. This is the core agent loop.
+
+<a name="live-mode"></a>
+
+### With Anthropic (Claude)
 
 ```bash
-python3 -m src.main commands --limit 10
-python3 -m src.main tools --limit 10
+export ANTHROPIC_API_KEY="sk-ant-..."
+python3 -m src.main live "list all python files in src/" --provider anthropic
 ```
 
-## Current Parity Checkpoint
+### With OpenAI
 
-The port now mirrors the archived root-entry file surface, top-level subsystem names, and command/tool inventories much more closely than before. However, it is **not yet** a full runtime-equivalent replacement for the original TypeScript system; the Python tree still contains fewer executable runtime slices than the archived source.
+```bash
+export OPENAI_API_KEY="sk-..."
+python3 -m src.main live "read README.md and summarize it" --provider openai --model gpt-4o
+```
 
+### With Google Gemini
 
-## Built with `oh-my-codex`
+```bash
+export GOOGLE_API_KEY="..."
+python3 -m src.main live "find all dataclass definitions" --provider gemini
+```
 
-The restructuring and documentation work on this repository was AI-assisted and orchestrated with Yeachan Heo's [oh-my-codex (OmX)](https://github.com/Yeachan-Heo/oh-my-codex), layered on top of Codex.
+### With Ollama (local, free)
 
-- **`$team` mode:** used for coordinated parallel review and architectural feedback
-- **`$ralph` mode:** used for persistent execution, verification, and completion discipline
-- **Codex-driven workflow:** used to turn the main `src/` tree into a Python-first porting workspace
+```bash
+# Start Ollama first: ollama serve
+# Pull a model: ollama pull llama3.1
+python3 -m src.main live "what files are in this project?" --provider ollama --model llama3.1
+```
 
-### OmX workflow screenshots
+### With LMStudio (local, free)
 
-![OmX workflow screenshot 1](assets/omx/omx-readme-review-1.png)
+```bash
+# Start LMStudio with API server enabled on port 1234
+python3 -m src.main live "explain the project structure" --provider lmstudio
+```
 
-*Ralph/team orchestration view while the README and essay context were being reviewed in terminal panes.*
+### Live mode flags
 
-![OmX workflow screenshot 2](assets/omx/omx-readme-review-2.png)
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--provider` | `anthropic` | LLM provider |
+| `--model` | provider default | Model name |
+| `--skill` | none | Skill to inject into system prompt |
+| `--max-turns` | `15` | Max turn loop iterations |
+| `--max-budget` | `100000` | Max total tokens |
 
-*Split-pane review and verification flow during the final README wording pass.*
+---
 
-## Community
+<a name="providers"></a>
 
-<p align="center">
-  <a href="https://instruct.kr/"><img src="assets/instructkr.png" alt="instructkr" width="400" /></a>
-</p>
+## Supported Providers
 
-Join the [**instructkr Discord**](https://instruct.kr/) — the best Korean language model community. Come chat about LLMs, harness engineering, agent workflows, and everything in between.
+| Provider | SDK Required | Default Model | Local? |
+|----------|-------------|---------------|--------|
+| **Anthropic** | `pip install anthropic` | claude-sonnet-4-20250514 | No |
+| **OpenAI** | `pip install openai` | gpt-4o | No |
+| **Gemini** | `pip install google-generativeai` | gemini-2.0-flash | No |
+| **Ollama** | None (stdlib only) | llama3.1 | Yes |
+| **LMStudio** | None (stdlib only) | local-model | Yes |
 
-[![Discord](https://img.shields.io/badge/Join%20Discord-instruct.kr-5865F2?logo=discord&style=for-the-badge)](https://instruct.kr/)
+Ollama and LMStudio use pure `urllib.request` — zero external dependencies.
 
-## Star History
+---
 
-This repository became **the fastest GitHub repo in history to surpass 30K stars**, reaching the milestone in just a few hours after publication.
+## Project Structure
 
-<a href="https://star-history.com/#instructkr/claw-code&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=instructkr/claw-code&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=instructkr/claw-code&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=instructkr/claw-code&type=Date" />
-  </picture>
-</a>
+```
+src/
+  llm/                          # Multi-provider LLM client
+    base.py                     # BaseLLMClient ABC
+    types.py                    # LLMMessage, ToolCall, LLMResponse, Usage
+    anthropic_client.py         # Anthropic adapter
+    openai_client.py            # OpenAI adapter
+    gemini_client.py            # Google Gemini adapter
+    ollama_client.py            # Ollama (localhost, no SDK)
+    lmstudio_client.py          # LMStudio (localhost, no SDK)
+    registry.py                 # build_llm_client() factory
 
-![Star History Screenshot](assets/star-history.png)
+  live_tools/                   # Real tool implementations
+    base.py                     # BaseTool ABC + ToolDefinition
+    read_tool.py                # Read files with line numbers
+    write_tool.py               # Write/create files
+    edit_tool.py                # String-replace edits
+    bash_tool.py                # Shell command execution
+    grep_tool.py                # Regex search (rg fallback to re)
+    glob_tool.py                # File pattern matching
+    agent_tool.py               # Agent sub-spawning
+    registry.py                 # build_live_tool_registry()
 
-## Ownership / Affiliation Disclaimer
+  hooks_lifecycle/              # Hook system
+    types.py                    # HookEvent enum, HookContext
+    registry.py                 # HookRegistry (register + fire)
+    shell_hook.py               # Shell command hooks
+    loader.py                   # Load hooks from settings
 
-- This repository does **not** claim ownership of the original Claude Code source material.
-- This repository is **not affiliated with, endorsed by, or maintained by Anthropic**.
+  skill_system/                 # Skill loading + injection
+    types.py                    # Skill, SkillMeta
+    loader.py                   # SkillLoader (YAML frontmatter)
+    injector.py                 # System prompt injection
+
+  turn_loop.py                  # TurnLoopRunner (core agent loop)
+  runtime.py                    # PortRuntime orchestrator
+  main.py                       # CLI entrypoint
+
+  # Harness infrastructure (routing, registry, bootstrap)
+  commands.py                   # Command registry (150+ entries)
+  tools.py                      # Tool registry (100+ entries)
+  context.py                    # Workspace context builder
+  setup.py                      # Environment setup/prefetch
+  query_engine.py               # Query engine with turn management
+  session_store.py              # Session persistence
+  permissions.py                # Tool permission gating
+  ...
+
+tests/                          # Test suite
+dashboard.html                  # Interactive D3.js codebase explorer
+```
+
+---
+
+## How It Works
+
+### The Turn Loop
+
+```
+1. User sends prompt
+2. LLM receives: system prompt + messages + tool definitions
+3. LLM responds with text OR tool_use requests
+4. If tool_use:
+   a. Fire PRE_TOOL_EXECUTION hook (can cancel)
+   b. Execute the tool (Read/Write/Edit/Bash/Grep/Glob/Agent)
+   c. Fire POST_TOOL_EXECUTION hook (can modify output)
+   d. Send tool results back to LLM
+   e. Go to step 3
+5. If text (end_turn): return final output
+6. Check budget — stop if tokens exhausted
+```
+
+### Agent Sub-Spawning
+
+When the LLM calls the `Agent` tool, a new `TurnLoopRunner` is created with:
+- Its own tool registry (all tools **except** Agent — no infinite recursion)
+- Its own token budget (50K default, deducted from parent)
+- Its own conversation history
+
+The sub-agent runs independently and returns a compressed result to the parent.
+
+### Hooks
+
+Register hooks that fire at key lifecycle points:
+
+```python
+from src.hooks_lifecycle.registry import HookRegistry
+from src.hooks_lifecycle.types import HookEvent
+
+registry = HookRegistry()
+registry.register(HookEvent.PRE_TOOL_EXECUTION, "logger", my_handler)
+registry.register(HookEvent.POST_TOOL_EXECUTION, "modifier", my_handler)
+```
+
+Shell hooks can be configured in `~/.claude/settings.json`:
+```json
+{
+  "hooks": [
+    {
+      "event": "PRE_TOOL_EXECUTION",
+      "command": "echo 'Tool about to run' >> /tmp/hook.log"
+    }
+  ]
+}
+```
+
+### Skills
+
+Drop a Markdown file in `~/.claude/skills/` or `./skills/`:
+
+```markdown
+---
+name: python-expert
+description: Expert Python coding assistant
+tags: python, coding
+---
+
+You are an expert Python developer. Follow PEP 8, use type hints,
+write comprehensive docstrings, and prefer dataclasses over dicts.
+```
+
+Then use it:
+```bash
+python3 -m src.main live "refactor this module" --skill python-expert
+```
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `GOOGLE_API_KEY` | Google/Gemini API key |
+| `CLAW_PROVIDER` | Default provider (overrides `--provider`) |
+| `CLAW_MODEL` | Default model (overrides `--model`) |
+| `OLLAMA_BASE_URL` | Ollama server URL (default: `http://localhost:11434`) |
+| `LMSTUDIO_BASE_URL` | LMStudio server URL (default: `http://localhost:1234`) |
+
+---
+
+## Credits
+
+Built on top of the [claw-code](https://github.com/instructkr/claw-code) Python harness by [@instructkr](https://github.com/instructkr). The live agent system (multi-provider LLM, real tools, hooks, skills, agent sub-spawning, turn loop, and interactive dashboard) was designed and implemented as an extension to the original mirrored harness architecture.
+
+---
+
+## License
+
+This project follows the same license terms as the upstream repository.
