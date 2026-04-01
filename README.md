@@ -18,12 +18,14 @@ CoderBhaiya is a Python agent harness that can connect to **any LLM provider** a
 
 ### Key capabilities
 
+- **`pip install` + `cb chat`** — Installable CLI with interactive REPL, streaming output, readline history
 - **Multi-provider LLM support** — Anthropic (Claude), OpenAI (GPT-4o), Google Gemini, Ollama (local), LMStudio (local)
 - **7 real tools** — Read, Write, Edit, Bash, Grep, Glob, Agent (sub-spawning)
 - **Hook lifecycle** — 7 hook events (pre/post tool execution, session start/end, turn start/end, pre-compaction) with shell hook support
 - **Skill injection** — Load skill files from `~/.claude/skills/` or `./skills/` and inject into system prompts
 - **Agent sub-spawning** — Agents can spawn sub-agents with isolated tool sets and budgets (no infinite recursion)
 - **Reactive turn loop** — LLM responds with text or tool calls; harness executes tools, sends results back, repeats
+- **JSON server mode** — stdin/stdout protocol for VS Code extensions and IDE integrations
 - **Interactive dashboard** — D3.js codebase explorer with animated flow diagrams, 4 view modes, zoom/pan
 
 ---
@@ -56,29 +58,64 @@ CoderBhaiya is a Python agent harness that can connect to **any LLM provider** a
 
 ## Quickstart
 
-### Prerequisites
+### Install
 
 ```bash
-# Python 3.11+
-python3 --version
+# From PyPI (when published)
+pip install coderbhaiya
 
-# Clone the repo
+# Or from source
 git clone https://github.com/mozzlestudios/CoderBhaiya.git
 cd CoderBhaiya
+pip install -e .
+
+# With a specific LLM provider
+pip install -e ".[anthropic]"    # Claude
+pip install -e ".[openai]"       # GPT-4o
+pip install -e ".[all]"          # All cloud providers
+```
+
+### Configure
+
+```bash
+# Set your provider and API key (saved to ~/.coderbhaiya/config.json)
+cb config set provider anthropic
+cb config set api_key sk-ant-your-key-here
+cb config set model claude-sonnet-4-20250514
+
+# Or use local models (no API key needed)
+cb config set provider ollama
+
+# View config
+cb config show
+```
+
+### Start chatting
+
+```bash
+# Interactive REPL with streaming output
+cb chat
+
+# Override provider/model for a session
+cb chat --provider openai --model gpt-4o
+cb chat --provider ollama --model llama3.1
+
+# One-shot mode
+cb live "list all python files in src/" --provider anthropic
 ```
 
 ### Explore the codebase (no LLM needed)
 
 ```bash
 # Render the workspace summary
-python3 -m src.main summary
+cb summary
 
 # List mirrored commands and tools
-python3 -m src.main commands --limit 10
-python3 -m src.main tools --limit 10
+cb commands --limit 10
+cb tools --limit 10
 
 # Route a prompt to matching commands/tools
-python3 -m src.main route "read the readme file"
+cb route "read the readme file"
 
 # Run verification tests
 python3 -m unittest discover -s tests -v
@@ -93,49 +130,74 @@ open dashboard.html
 
 ---
 
-## Live Mode
-
-Live mode connects to a real LLM and executes real tools. This is the core agent loop.
+## Interactive Chat (REPL)
 
 <a name="live-mode"></a>
 
-### With Anthropic (Claude)
+The `cb chat` command starts an interactive session with streaming output, colored tool execution, and slash commands:
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-python3 -m src.main live "list all python files in src/" --provider anthropic
+```
+╔══════════════════════════════════════════╗
+║          CoderBhaiya CLI v0.1.0          ║
+╚══════════════════════════════════════════╝
+
+  Provider: anthropic
+  Model:    claude-sonnet-4-20250514
+
+> read the README.md and summarize it
+
+  [Read] /path/to/README.md
+    1  # CoderBhaiya
+    2  ...
+
+  This project is an AI agent harness that...
+
+> /model gpt-4o
+  Switched to anthropic/gpt-4o
+
+> /provider ollama
+  Switched to ollama/llama3.1
+
+> /help
+> /clear
+> /exit
 ```
 
-### With OpenAI
+### REPL Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show available commands |
+| `/config` | Show current configuration |
+| `/config set KEY VALUE` | Update a config value |
+| `/model NAME` | Switch model for this session |
+| `/provider NAME` | Switch provider for this session |
+| `/skill NAME` | Load a skill for this session |
+| `/clear` | Clear conversation history |
+| `/exit` | Exit (or Ctrl+C) |
+
+---
+
+## One-Shot Mode
+
+For non-interactive use, `cb live` runs a single prompt:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
-python3 -m src.main live "read README.md and summarize it" --provider openai --model gpt-4o
+# Anthropic
+cb live "list all python files in src/" --provider anthropic
+
+# OpenAI
+cb live "read README.md and summarize it" --provider openai --model gpt-4o
+
+# Gemini
+cb live "find all dataclass definitions" --provider gemini
+
+# Ollama (local, free — no API key)
+cb live "what files are in this project?" --provider ollama --model llama3.1
+
+# LMStudio (local, free — no API key)
+cb live "explain the project structure" --provider lmstudio
 ```
-
-### With Google Gemini
-
-```bash
-export GOOGLE_API_KEY="..."
-python3 -m src.main live "find all dataclass definitions" --provider gemini
-```
-
-### With Ollama (local, free)
-
-```bash
-# Start Ollama first: ollama serve
-# Pull a model: ollama pull llama3.1
-python3 -m src.main live "what files are in this project?" --provider ollama --model llama3.1
-```
-
-### With LMStudio (local, free)
-
-```bash
-# Start LMStudio with API server enabled on port 1234
-python3 -m src.main live "explain the project structure" --provider lmstudio
-```
-
-### Live mode flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -144,6 +206,36 @@ python3 -m src.main live "explain the project structure" --provider lmstudio
 | `--skill` | none | Skill to inject into system prompt |
 | `--max-turns` | `15` | Max turn loop iterations |
 | `--max-budget` | `100000` | Max total tokens |
+
+---
+
+## Server Mode (IDE Integration)
+
+For VS Code extensions or other editors, `cb server` runs a JSON-over-stdin/stdout protocol:
+
+```bash
+cb server
+```
+
+**Protocol:**
+
+```jsonc
+// → Send to stdin:
+{"type": "prompt", "text": "read README.md", "provider": "anthropic"}
+{"type": "config", "key": "model", "value": "gpt-4o"}
+{"type": "shutdown"}
+
+// ← Receive from stdout:
+{"type": "ready", "provider": "anthropic", "model": "claude-sonnet-4-20250514"}
+{"type": "session_start", "prompt": "read README.md"}
+{"type": "turn_start", "turn": 1}
+{"type": "tool_call", "name": "Read", "input": {"file_path": "README.md"}}
+{"type": "tool_result", "name": "Read", "output": "# CoderBhaiya..."}
+{"type": "text", "content": "The README contains..."}
+{"type": "session_end", "turns": 1, "usage": {"input_tokens": 500, "output_tokens": 200}}
+```
+
+This makes it easy to build IDE plugins — just spawn `cb server` as a subprocess and communicate via JSON lines.
 
 ---
 
@@ -199,9 +291,15 @@ src/
     loader.py                   # SkillLoader (YAML frontmatter)
     injector.py                 # System prompt injection
 
+  cli_app/                      # CLI application layer
+    config.py                   # ~/.coderbhaiya/config.json management
+    repl.py                     # Interactive REPL with streaming
+    streaming.py                # Terminal renderer (colors, badges, tool summaries)
+    server.py                   # JSON-over-stdin/stdout server for IDEs
+
   turn_loop.py                  # TurnLoopRunner (core agent loop)
   runtime.py                    # PortRuntime orchestrator
-  main.py                       # CLI entrypoint
+  main.py                       # CLI entrypoint (chat, config, server, live, ...)
 
   # Harness infrastructure (routing, registry, bootstrap)
   commands.py                   # Command registry (150+ entries)

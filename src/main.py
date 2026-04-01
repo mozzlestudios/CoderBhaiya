@@ -17,6 +17,8 @@ from .setup import run_setup
 from .tool_pool import assemble_tool_pool
 from .tools import execute_tool, get_tool, get_tools, render_tool_index
 
+# Lazy: cli_app imports are deferred to avoid loading LLM/tools at startup
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Python porting workspace for the Claude Code rewrite effort')
@@ -97,6 +99,28 @@ def build_parser() -> argparse.ArgumentParser:
     live_parser.add_argument('--skill', default=None, help='skill name to inject into system prompt')
     live_parser.add_argument('--max-turns', type=int, default=15, help='max turn loop iterations')
     live_parser.add_argument('--max-budget', type=int, default=100000, help='max total tokens')
+
+    # Interactive chat REPL
+    chat_parser = subparsers.add_parser('chat', help='interactive chat with streaming output')
+    chat_parser.add_argument('--provider', default=None, choices=['anthropic', 'openai', 'gemini', 'ollama', 'lmstudio'], help='LLM provider (overrides config)')
+    chat_parser.add_argument('--model', default=None, help='model name (overrides config)')
+    chat_parser.add_argument('--skill', default=None, help='skill name to inject into system prompt')
+    chat_parser.add_argument('--max-turns', type=int, default=None, help='max turn loop iterations')
+    chat_parser.add_argument('--max-budget', type=int, default=None, help='max total tokens')
+
+    # Config management
+    config_parser = subparsers.add_parser('config', help='manage CoderBhaiya configuration')
+    config_sub = config_parser.add_subparsers(dest='config_action')
+    config_sub.add_parser('show', help='show current configuration')
+    config_set_parser = config_sub.add_parser('set', help='set a config value')
+    config_set_parser.add_argument('key', help='config key (provider, model, api_key, max_turns, etc.)')
+    config_set_parser.add_argument('value', help='config value')
+    config_get_parser = config_sub.add_parser('get', help='get a config value')
+    config_get_parser.add_argument('key', help='config key')
+    config_sub.add_parser('path', help='show config file path')
+
+    # JSON server mode (for VS Code extension / IDE integration)
+    subparsers.add_parser('server', help='JSON-over-stdin/stdout server for IDE integration')
 
     return parser
 
@@ -230,6 +254,48 @@ def main(argv: list[str] | None = None) -> int:
         if result.tool_calls_made:
             print(f'--- [tools: {", ".join(result.tool_calls_made)}]')
         return 0
+    if args.command == 'chat':
+        from .cli_app.repl import run_repl
+        return run_repl(
+            provider=args.provider,
+            model=args.model,
+            skill_name=args.skill,
+            max_turns=args.max_turns,
+            max_budget=args.max_budget,
+        )
+    if args.command == 'config':
+        from .cli_app.config import load_config, get_config_value, set_config_value, _config_path
+        from dataclasses import asdict
+        action = args.config_action or 'show'
+        if action == 'show':
+            config = load_config()
+            for k, v in asdict(config).items():
+                display = '***' if k == 'api_key' and v else v
+                print(f'{k} = {display}')
+            return 0
+        if action == 'get':
+            try:
+                print(get_config_value(args.key))
+            except KeyError as e:
+                print(str(e))
+                return 1
+            return 0
+        if action == 'set':
+            try:
+                path = set_config_value(args.key, args.value)
+                print(f'Set {args.key} = {args.value}')
+                print(f'Saved to {path}')
+            except KeyError as e:
+                print(str(e))
+                return 1
+            return 0
+        if action == 'path':
+            print(_config_path())
+            return 0
+        return 0
+    if args.command == 'server':
+        from .cli_app.server import run_server
+        return run_server()
     parser.error(f'unknown command: {args.command}')
     return 2
 

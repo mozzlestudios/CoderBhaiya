@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coderbhaiya"
+version = "0.1.0"
+description = "AI agent harness with multi-provider LLM support, real tool execution, and agent sub-spawning"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Abhas Mehrotra"},
+]
+keywords = ["ai", "agent", "llm", "cli", "tools", "harness"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.30"]
+openai = ["openai>=1.0"]
+gemini = ["google-generativeai>=0.5"]
+all = ["anthropic>=0.30", "openai>=1.0", "google-generativeai>=0.5"]
+
+[project.scripts]
+coderbhaiya = "src.main:main"
+cb = "src.main:main"
+
+[project.urls]
+Homepage = "https://github.com/mozzlestudios/CoderBhaiya"
+Repository = "https://github.com/mozzlestudios/CoderBhaiya"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
