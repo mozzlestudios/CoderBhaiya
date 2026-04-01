@@ -386,7 +386,8 @@ write comprehensive docstrings, and prefer dataclasses over dicts.
 
 Then use it:
 ```bash
-python3 -m src.main live "refactor this module" --skill python-expert
+cb live "refactor this module" --skill python-expert
+cb chat --skill python-expert
 ```
 
 ---
@@ -402,15 +403,22 @@ python3 -m src.main live "refactor this module" --skill python-expert
 | `CLAW_MODEL` | Default model (overrides `--model`) |
 | `OLLAMA_BASE_URL` | Ollama server URL (default: `http://localhost:11434`) |
 | `LMSTUDIO_BASE_URL` | LMStudio server URL (default: `http://localhost:1234`) |
+| `CODERBHAIYA_CONFIG_DIR` | Config directory (default: `~/.coderbhaiya/`) |
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, code style, and guides for adding new LLM providers or tools.
 
 ---
 
 ## Credits
 
-Built on top of the [claw-code](https://github.com/instructkr/claw-code) Python harness by [@instructkr](https://github.com/instructkr). The live agent system (multi-provider LLM, real tools, hooks, skills, agent sub-spawning, turn loop, and interactive dashboard) was designed and implemented as an extension to the original mirrored harness architecture.
+Built on top of the [claw-code](https://github.com/instructkr/claw-code) Python harness by [@instructkr](https://github.com/instructkr). The live agent system (multi-provider LLM, real tools, hooks, skills, agent sub-spawning, turn loop, interactive CLI, and dashboard) was designed and implemented as an extension to the original mirrored harness architecture.
 
 ---
 
 ## License
 
-This project follows the same license terms as the upstream repository.
+[MIT](LICENSE) &copy; 2026 Abhas Mehrotra
