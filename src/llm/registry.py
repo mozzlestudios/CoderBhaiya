@@ -7,8 +7,8 @@ from .base import BaseLLMClient
 # Default models per provider
 DEFAULT_MODELS = {
     'anthropic': 'claude-sonnet-4-20250514',
-    'openai': 'gpt-4o',
-    'gemini': 'gemini-2.0-flash',
+    'openai': 'o3',
+    'gemini': 'gemini-2.5-flash',
     'ollama': 'llama3.1',
     'lmstudio': 'local-model',
 }

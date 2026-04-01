@@ -33,7 +33,7 @@ Everything below was designed and built from scratch as an extension to the orig
 #### Multi-Provider LLM Support
 - **5 providers through a single interface** (`src/llm/`):
   - Anthropic (Claude) — full SDK integration
-  - OpenAI (GPT-4o) — full SDK integration
+  - OpenAI (o3, GPT-4o, etc.) — full SDK integration
   - Google Gemini — full SDK integration
   - Ollama — pure `urllib.request`, zero dependencies, local models
   - LMStudio — pure `urllib.request`, zero dependencies, local models

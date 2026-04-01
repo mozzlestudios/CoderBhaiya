@@ -176,6 +176,6 @@ def render_help() -> None:
   {Colors.DIM}read the README.md and summarize it{Colors.RESET}
   {Colors.DIM}find all TODO comments in the codebase{Colors.RESET}
   {Colors.DIM}write a function that parses CSV files{Colors.RESET}
-  {Colors.DIM}/model gpt-4o{Colors.RESET}
+  {Colors.DIM}/model o3{Colors.RESET}
   {Colors.DIM}/provider ollama{Colors.RESET}
 """)

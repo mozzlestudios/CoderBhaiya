@@ -19,7 +19,7 @@ CoderBhaiya is a Python agent harness that can connect to **any LLM provider** a
 ### Key capabilities
 
 - **`pip install` + `cb chat`** — Installable CLI with interactive REPL, streaming output, readline history
-- **Multi-provider LLM support** — Anthropic (Claude), OpenAI (GPT-4o), Google Gemini, Ollama (local), LMStudio (local)
+- **Multi-provider LLM support** — Anthropic (Claude), OpenAI (o3), Google Gemini, Ollama (local), LMStudio (local)
 - **7 real tools** — Read, Write, Edit, Bash, Grep, Glob, Agent (sub-spawning)
 - **Hook lifecycle** — 7 hook events (pre/post tool execution, session start/end, turn start/end, pre-compaction) with shell hook support
 - **Skill injection** — Load skill files from `~/.claude/skills/` or `./skills/` and inject into system prompts
@@ -71,7 +71,7 @@ pip install -e .
 
 # With a specific LLM provider
 pip install -e ".[anthropic]"    # Claude
-pip install -e ".[openai]"       # GPT-4o
+pip install -e ".[openai]"       # o3
 pip install -e ".[all]"          # All cloud providers
 ```
 
@@ -97,7 +97,7 @@ cb config show
 cb chat
 
 # Override provider/model for a session
-cb chat --provider openai --model gpt-4o
+cb chat --provider openai --model o3
 cb chat --provider ollama --model llama3.1
 
 # One-shot mode
@@ -152,8 +152,8 @@ The `cb chat` command starts an interactive session with streaming output, color
 
   This project is an AI agent harness that...
 
-> /model gpt-4o
-  Switched to anthropic/gpt-4o
+> /model o3
+  Switched to anthropic/o3
 
 > /provider ollama
   Switched to ollama/llama3.1
@@ -187,7 +187,7 @@ For non-interactive use, `cb live` runs a single prompt:
 cb live "list all python files in src/" --provider anthropic
 
 # OpenAI
-cb live "read README.md and summarize it" --provider openai --model gpt-4o
+cb live "read README.md and summarize it" --provider openai --model o3
 
 # Gemini
 cb live "find all dataclass definitions" --provider gemini
@@ -222,7 +222,7 @@ cb server
 ```jsonc
 // → Send to stdin:
 {"type": "prompt", "text": "read README.md", "provider": "anthropic"}
-{"type": "config", "key": "model", "value": "gpt-4o"}
+{"type": "config", "key": "model", "value": "o3"}
 {"type": "shutdown"}
 
 // ← Receive from stdout:
@@ -246,8 +246,8 @@ This makes it easy to build IDE plugins — just spawn `cb server` as a subproce
 | Provider | SDK Required | Default Model | Local? |
 |----------|-------------|---------------|--------|
 | **Anthropic** | `pip install anthropic` | claude-sonnet-4-20250514 | No |
-| **OpenAI** | `pip install openai` | gpt-4o | No |
-| **Gemini** | `pip install google-generativeai` | gemini-2.0-flash | No |
+| **OpenAI** | `pip install openai` | o3 | No |
+| **Gemini** | `pip install google-generativeai` | gemini-2.5-flash | No |
 | **Ollama** | None (stdlib only) | llama3.1 | Yes |
 | **LMStudio** | None (stdlib only) | local-model | Yes |
 

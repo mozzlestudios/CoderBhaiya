@@ -1,4 +1,4 @@
-"""OpenAI (GPT-4, etc.) LLM adapter."""
+"""OpenAI LLM adapter."""
 from __future__ import annotations
 import json
 import os
@@ -10,7 +10,7 @@ from .types import LLMMessage, LLMResponse, ToolCall, Usage
 class OpenAIClient(BaseLLMClient):
     provider = 'openai'
 
-    def __init__(self, model: str = 'gpt-4o', api_key: str | None = None, base_url: str | None = None) -> None:
+    def __init__(self, model: str = 'o3', api_key: str | None = None, base_url: str | None = None) -> None:
         self.model = model
         self._api_key = api_key or os.environ.get('OPENAI_API_KEY', '')
 

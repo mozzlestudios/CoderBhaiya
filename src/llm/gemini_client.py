@@ -9,7 +9,7 @@ from .types import LLMMessage, LLMResponse, ToolCall, Usage
 class GeminiClient(BaseLLMClient):
     provider = 'gemini'
 
-    def __init__(self, model: str = 'gemini-2.0-flash', api_key: str | None = None) -> None:
+    def __init__(self, model: str = 'gemini-2.5-flash', api_key: str | None = None) -> None:
         self.model = model
         self._api_key = api_key or os.environ.get('GOOGLE_API_KEY', '') or os.environ.get('GEMINI_API_KEY', '')
 
