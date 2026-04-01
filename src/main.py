@@ -88,6 +88,16 @@ def build_parser() -> argparse.ArgumentParser:
     exec_tool_parser = subparsers.add_parser('exec-tool', help='execute a mirrored tool shim by exact name')
     exec_tool_parser.add_argument('name')
     exec_tool_parser.add_argument('payload')
+
+    # Live mode — real LLM + real tools
+    live_parser = subparsers.add_parser('live', help='run a live session with real LLM and tool execution')
+    live_parser.add_argument('prompt', help='the prompt to send to the LLM')
+    live_parser.add_argument('--provider', default='anthropic', choices=['anthropic', 'openai', 'gemini', 'ollama', 'lmstudio'], help='LLM provider')
+    live_parser.add_argument('--model', default=None, help='model name (defaults to provider default)')
+    live_parser.add_argument('--skill', default=None, help='skill name to inject into system prompt')
+    live_parser.add_argument('--max-turns', type=int, default=15, help='max turn loop iterations')
+    live_parser.add_argument('--max-budget', type=int, default=100000, help='max total tokens')
+
     return parser
 
 
@@ -205,6 +215,21 @@ def main(argv: list[str] | None = None) -> int:
         result = execute_tool(args.name, args.payload)
         print(result.message)
         return 0 if result.handled else 1
+    if args.command == 'live':
+        runtime = PortRuntime()
+        result = runtime.run_live_session(
+            prompt=args.prompt,
+            provider=args.provider,
+            model=args.model,
+            skill_name=args.skill,
+            max_turns=args.max_turns,
+            max_budget_tokens=args.max_budget,
+        )
+        print(result.final_output)
+        print(f'\n--- [{result.turns_used} turns | {result.total_usage.total_tokens} tokens | stop={result.stop_reason}]')
+        if result.tool_calls_made:
+            print(f'--- [tools: {", ".join(result.tool_calls_made)}]')
+        return 0
     parser.error(f'unknown command: {args.command}')
     return 2
 

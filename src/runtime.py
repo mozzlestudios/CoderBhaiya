@@ -190,3 +190,67 @@ class PortRuntime:
             if any(token in haystack for haystack in haystacks):
                 score += 1
         return score
+
+    # ================================================================
+    # LIVE MODE — real LLM calls, real tool execution, agent spawning
+    # ================================================================
+
+    def run_live_session(
+        self,
+        prompt: str,
+        provider: str = 'anthropic',
+        model: str | None = None,
+        skill_name: str | None = None,
+        max_turns: int = 15,
+        max_budget_tokens: int = 100_000,
+    ):
+        """Run a live session with real LLM and tool execution.
+
+        This is the 'live' counterpart to bootstrap_session/run_turn_loop.
+        Instead of mirrored stubs, it calls real LLM APIs and executes
+        real tools (Read, Write, Edit, Bash, Grep, Glob, Agent).
+
+        Args:
+            prompt: The user's prompt.
+            provider: LLM provider ('anthropic', 'openai', 'gemini', 'ollama', 'lmstudio').
+            model: Model name (defaults to provider default).
+            skill_name: Optional skill to inject into system prompt.
+            max_turns: Maximum turn loop iterations.
+            max_budget_tokens: Total token budget.
+
+        Returns:
+            TurnLoopResult with final output, usage, and tool call history.
+        """
+        from .llm.registry import build_llm_client
+        from .live_tools.registry import build_live_tool_registry
+        from .hooks_lifecycle.loader import build_hook_registry
+        from .skill_system.loader import SkillLoader
+        from .skill_system.injector import inject_skill_into_system_prompt
+        from .turn_loop import TurnLoopRunner, TurnLoopConfig
+
+        # Build components
+        llm = build_llm_client(provider=provider, model=model)
+        hook_registry = build_hook_registry()
+        tools = build_live_tool_registry(llm_client=llm, hook_registry=hook_registry)
+
+        # Build system prompt
+        system_prompt = build_system_init_message(trusted=True)
+        if skill_name:
+            loader = SkillLoader()
+            skill = loader.load_skill(skill_name)
+            if skill:
+                system_prompt = inject_skill_into_system_prompt(system_prompt, skill)
+
+        # Run the turn loop
+        config = TurnLoopConfig(
+            max_turns=max_turns,
+            max_budget_tokens=max_budget_tokens,
+            system_prompt=system_prompt,
+        )
+        runner = TurnLoopRunner(
+            llm=llm,
+            tools=tools,
+            config=config,
+            hook_registry=hook_registry,
+        )
+        return runner.run(prompt)

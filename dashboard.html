@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claw-Code | Interactive Codebase Explorer</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1e293b;
+    --bg4: #283548;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --accent: #3b82f6;
+    --blue: #3b82f6;
+    --teal: #14b8a6;
+    --orange: #f59e0b;
+    --green: #10b981;
+    --pink: #ec4899;
+    --purple: #8b5cf6;
+    --red: #ef4444;
+    --cyan: #06b6d4;
+    --border: #334155;
+    --glow: rgba(59, 130, 246, 0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+  /* TOP BAR */
+  .topbar { display: flex; align-items: center; padding: 8px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 12px; z-index: 100; flex-shrink: 0; }
+  .logo { font-size: 18px; font-weight: 700; background: linear-gradient(135deg, var(--blue), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; white-space: nowrap; }
+  .logo span { font-weight: 400; opacity: 0.7; }
+  .tabs { display: flex; gap: 4px; }
+  .tab { padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text2); background: transparent; border: 1px solid transparent; transition: all 0.2s; font-family: inherit; }
+  .tab:hover { background: var(--bg3); color: var(--text); }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .search-box { margin-left: auto; position: relative; }
+  .search-box input { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px 6px 30px; color: var(--text); font-size: 12px; width: 220px; font-family: inherit; outline: none; }
+  .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+  .search-box::before { content: '\u{1F50D}'; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; }
+  .controls { display: flex; gap: 6px; align-items: center; }
+  .ctrl-btn { padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; color: var(--text2); background: var(--bg3); border: 1px solid var(--border); transition: all 0.2s; font-family: inherit; }
+  .ctrl-btn:hover { background: var(--bg4); color: var(--text); }
+  .ctrl-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* MAIN */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  .canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+  svg { width: 100%; height: 100%; }
+
+  /* DETAIL PANEL */
+  .detail-panel { width: 360px; background: var(--bg2); border-left: 1px solid var(--border); overflow-y: auto; padding: 0; transition: transform 0.3s ease, opacity 0.3s ease; flex-shrink: 0; }
+  .detail-panel.hidden { transform: translateX(100%); opacity: 0; width: 0; padding: 0; }
+  .dp-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+  .dp-title { font-size: 15px; font-weight: 700; }
+  .dp-subtitle { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .dp-close { cursor: pointer; color: var(--text3); font-size: 18px; background: none; border: none; padding: 2px 6px; border-radius: 4px; font-family: inherit; }
+  .dp-close:hover { background: var(--bg3); color: var(--text); }
+  .dp-section { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .dp-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); margin-bottom: 8px; }
+  .dp-code { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 12px; color: var(--green); overflow-x: auto; white-space: pre; line-height: 1.5; }
+  .dp-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin: 2px; }
+  .dp-list { list-style: none; }
+  .dp-list li { padding: 4px 0; font-size: 12px; color: var(--text2); cursor: pointer; }
+  .dp-list li:hover { color: var(--accent); }
+  .dp-list li::before { content: '\u2192 '; color: var(--text3); }
+  .dp-concept { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 8px; }
+  .dp-concept h4 { font-size: 12px; color: var(--accent); margin-bottom: 6px; }
+  .dp-concept p { font-size: 11px; color: var(--text2); line-height: 1.6; }
+
+  /* TOOLTIP */
+  .tooltip { position: absolute; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text); pointer-events: none; z-index: 1000; max-width: 350px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.15s; }
+  .tooltip .tt-name { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .tooltip .tt-sig { color: var(--green); font-size: 11px; }
+  .tooltip .tt-desc { color: var(--text2); margin-top: 4px; font-size: 11px; line-height: 1.4; }
+
+  /* CONCEPT CARDS (overlay) */
+  .concept-overlay { position: absolute; top: 60px; left: 16px; z-index: 50; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .concept-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; pointer-events: auto; cursor: pointer; max-width: 260px; transition: all 0.2s; }
+  .concept-card:hover { border-color: var(--accent); transform: translateX(4px); }
+  .concept-card.expanded { max-width: 340px; }
+  .cc-title { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .cc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cc-body { font-size: 11px; color: var(--text2); line-height: 1.5; margin-top: 6px; display: none; }
+  .concept-card.expanded .cc-body { display: block; }
+
+  /* LEGEND */
+  .legend { position: absolute; bottom: 16px; left: 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; z-index: 50; }
+  .legend-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); margin-bottom: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); padding: 2px 0; }
+  .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* PLAYBACK BAR */
+  .playback-bar { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 8px 16px; z-index: 50; display: flex; align-items: center; gap: 12px; }
+  .play-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); border: none; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .play-btn:hover { background: #2563eb; transform: scale(1.1); }
+  .step-label { font-size: 12px; color: var(--text2); min-width: 200px; text-align: center; }
+  .step-progress { display: flex; gap: 4px; }
+  .step-pip { width: 20px; height: 4px; border-radius: 2px; background: var(--bg4); transition: background 0.3s; }
+  .step-pip.done { background: var(--accent); }
+  .step-pip.current { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+
+  /* ANIMATED PARTICLES */
+  .particle { fill: var(--accent); opacity: 0; }
+
+  /* MINIMAP */
+  .minimap { position: absolute; bottom: 80px; right: 16px; width: 180px; height: 120px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; z-index: 50; overflow: hidden; }
+  .minimap rect.viewport { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">claw-code <span>explorer</span></div>
+  <div class="tabs">
+    <button class="tab active" data-view="flow">Usage Flow</button>
+    <button class="tab" data-view="files">Files</button>
+    <button class="tab" data-view="functions">Functions</button>
+    <button class="tab" data-view="modules">Modules</button>
+  </div>
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-fit">Fit View</button>
+    <button class="ctrl-btn" id="btn-animate">Animate Flow</button>
+    <button class="ctrl-btn" id="btn-concepts">Concepts</button>
+  </div>
+  <div class="search-box">
+    <input type="text" id="search" placeholder="Search functions, files..." />
+  </div>
+</div>
+
+<div class="main">
+  <div class="canvas-wrap" id="canvas-wrap">
+    <svg id="svg"></svg>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="concept-overlay" id="concept-overlay"></div>
+    <div class="legend" id="legend"></div>
+    <div class="playback-bar" id="playback" style="display:none">
+      <button class="play-btn" id="play-btn">&#9654;</button>
+      <div class="step-label" id="step-label">Ready to animate</div>
+      <div class="step-progress" id="step-progress"></div>
+    </div>
+  </div>
+  <div class="detail-panel hidden" id="detail-panel">
+    <div class="dp-header">
+      <div>
+        <div class="dp-title" id="dp-title"></div>
+        <div class="dp-subtitle" id="dp-subtitle"></div>
+      </div>
+      <button class="dp-close" id="dp-close">&times;</button>
+    </div>
+    <div id="dp-content"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA: Complete codebase model
+// ============================================================
+
+const PHASE_COLORS = {
+  input: '#3b82f6',
+  setup: '#14b8a6',
+  routing: '#f59e0b',
+  execution: '#10b981',
+  streaming: '#ec4899',
+  persistence: '#8b5cf6',
+  cli: '#06b6d4',
+  data: '#64748b',
+  analysis: '#ef4444',
+  mode: '#f97316'
+};
+
+const CONCEPTS = [
+  {
+    title: 'Harness',
+    color: PHASE_COLORS.cli,
+    body: 'The harness is the top-level runtime that wraps the entire agent system. It bootstraps the environment, loads commands/tools from snapshots, routes user prompts to the right handler, manages the turn-based conversation loop, and persists sessions. Think of it as the "shell" that the LLM agent lives inside. In claw-code, PortRuntime is the harness.'
+  },
+  {
+    title: 'Hooks',
+    color: PHASE_COLORS.setup,
+    body: 'Hooks are lifecycle callbacks that fire at specific points during execution. In the bootstrap sequence, hooks run during "deferred init" after trust is established. Session hooks initialize conversation state, cost hooks track token usage. Hooks allow plugins and extensions to tap into the agent lifecycle without modifying core code.'
+  },
+  {
+    title: 'Skills',
+    color: PHASE_COLORS.execution,
+    body: 'Skills are high-level capabilities the agent can invoke \u2014 like "commit code" or "review PR". They are composed from lower-level commands and tools. The CommandGraph categorizes entries as builtins, plugin-like, or skill-like. Skills are loaded during deferred_init and registered in the execution registry.'
+  },
+  {
+    title: 'Commands vs Tools',
+    color: PHASE_COLORS.routing,
+    body: 'Commands are user-facing actions (like slash commands): /commit, /review, /help. Tools are lower-level capabilities the LLM calls: BashTool, FileRead, AgentTool. Commands are routed from user input; tools are selected by the model. Both are loaded from JSON snapshots and executed through the ExecutionRegistry.'
+  },
+  {
+    title: 'Turn Loop',
+    color: PHASE_COLORS.streaming,
+    body: 'The turn loop is the core conversation cycle. Each "turn" is one prompt \u2192 response cycle. The QueryEnginePort tracks turns, manages token budgets (max_budget_tokens), compacts old messages after a threshold (compact_after_turns=12), and stops when max_turns is reached or budget is exhausted. Stream events yield incremental results.'
+  },
+  {
+    title: 'Permission Gating',
+    color: PHASE_COLORS.persistence,
+    body: 'ToolPermissionContext controls which tools the agent can use. It has deny_names (exact blocks) and deny_prefixes (prefix blocks like "mcp_"). The harness infers denials \u2014 e.g., bash tools are auto-blocked as "destructive shell execution remains gated". This prevents the agent from running dangerous operations.'
+  }
+];
+
+// Complete module data
+const MODULES = {
+  'main.py': {
+    category: 'Core', phase: 'cli',
+    desc: 'CLI entrypoint with 24+ subcommands. Parses arguments and dispatches to appropriate handlers.',
+    functions: [
+      { name: 'build_parser', sig: '() -> ArgumentParser', desc: 'Creates argparse parser with all 24 subcommands', calls: [] },
+      { name: 'main', sig: '(argv: list[str] | None = None) -> int', desc: 'Entry point. Parses CLI, dispatches to subcommand handler', calls: ['build_parser','build_port_manifest','QueryEnginePort.from_workspace','QueryEnginePort.render_summary','run_parity_audit','run_setup','build_command_graph','assemble_tool_pool','build_bootstrap_graph','PortRuntime.route_prompt','PortRuntime.bootstrap_session','PortRuntime.run_turn_loop','load_session','run_remote_mode','run_ssh_mode','run_teleport_mode','run_direct_connect','run_deep_link','get_command','get_commands','execute_command','get_tool','get_tools','execute_tool'] }
+    ],
+    imports: ['bootstrap_graph','command_graph','commands','direct_modes','parity_audit','permissions','port_manifest','query_engine','remote_runtime','runtime','session_store','setup','tool_pool','tools']
+  },
+  'runtime.py': {
+    category: 'Core', phase: 'routing',
+    desc: 'PortRuntime \u2014 the harness. Routes prompts, bootstraps sessions, runs turn loops.',
+    functions: [
+      { name: 'PortRuntime.route_prompt', sig: '(self, prompt: str, limit: int = 5) -> list[RoutedMatch]', desc: 'Tokenizes prompt, scores against all commands/tools, returns top matches', calls: ['_collect_matches','_score','_infer_permission_denials'] },
+      { name: 'PortRuntime.bootstrap_session', sig: '(self, prompt: str, limit: int = 5) -> RuntimeSession', desc: 'Full session initialization: context, setup, routing, execution, persistence', calls: ['build_port_context','run_setup','HistoryLog','QueryEnginePort.from_workspace','route_prompt','build_execution_registry','build_system_init_message','stream_submit_message','submit_message','persist_session'] },
+      { name: 'PortRuntime.run_turn_loop', sig: '(self, prompt: str, limit: int = 5, max_turns: int = 3) -> list[TurnResult]', desc: 'Multi-turn conversation loop with budget/turn limits', calls: ['QueryEnginePort.from_workspace','route_prompt','submit_message'] },
+      { name: 'PortRuntime._infer_permission_denials', sig: '(self, matches: list[RoutedMatch]) -> list[PermissionDenial]', desc: 'Auto-blocks bash tools as destructive', calls: [] },
+      { name: 'PortRuntime._collect_matches', sig: '(self, tokens, modules, kind) -> list[RoutedMatch]', desc: 'Scores each module against prompt tokens', calls: ['_score'] },
+      { name: 'PortRuntime._score', sig: '(tokens: set[str], module: PortingModule) -> int', desc: 'Counts token hits in module name/source/responsibility', calls: [] },
+      { name: 'RuntimeSession.as_markdown', sig: '(self) -> str', desc: 'Renders full session report as markdown', calls: ['render_context'] }
+    ],
+    imports: ['commands','context','history','models','query_engine','setup','system_init','tools','execution_registry']
+  },
+  'query_engine.py': {
+    category: 'Core', phase: 'routing',
+    desc: 'QueryEnginePort \u2014 the agent orchestration engine. Manages turns, tokens, transcripts.',
+    functions: [
+      { name: 'QueryEnginePort.from_workspace', sig: '() -> QueryEnginePort', desc: 'Factory: creates engine with fresh manifest and session ID', calls: ['build_port_manifest'] },
+      { name: 'QueryEnginePort.from_saved_session', sig: '(session_id: str) -> QueryEnginePort', desc: 'Restores engine from persisted session JSON', calls: ['load_session','TranscriptStore','UsageSummary'] },
+      { name: 'QueryEnginePort.submit_message', sig: '(self, prompt, matched_commands, matched_tools, denied_tools) -> TurnResult', desc: 'Core turn execution: checks limits, formats output, tracks usage, compacts', calls: ['_format_output','UsageSummary.add_turn','compact_messages_if_needed','TranscriptStore.append'] },
+      { name: 'QueryEnginePort.stream_submit_message', sig: '(self, ...) -> Generator[dict]', desc: 'Yields streaming events: message_start, command_match, tool_match, permission_denial, message_delta, message_stop', calls: ['submit_message'] },
+      { name: 'QueryEnginePort.compact_messages_if_needed', sig: '(self) -> None', desc: 'Trims messages if over compact_after_turns threshold', calls: ['TranscriptStore.compact'] },
+      { name: 'QueryEnginePort.persist_session', sig: '(self) -> str', desc: 'Flushes transcript and saves session to JSON file', calls: ['flush_transcript','save_session'] },
+      { name: 'QueryEnginePort.render_summary', sig: '(self) -> str', desc: 'Markdown summary with manifest, commands, tools, usage', calls: ['build_command_backlog','build_tool_backlog'] },
+      { name: 'QueryEnginePort._format_output', sig: '(self, summary_lines) -> str', desc: 'Formats turn output, may use structured JSON mode', calls: ['_render_structured_output'] },
+      { name: 'QueryEnginePort._render_structured_output', sig: '(self, payload) -> str', desc: 'JSON serialization for structured output mode', calls: [] }
+    ],
+    imports: ['commands','models','port_manifest','session_store','tools','transcript']
+  },
+  'commands.py': {
+    category: 'Registry', phase: 'routing',
+    desc: 'Loads 150+ commands from JSON snapshot. Provides lookup, search, and execution.',
+    functions: [
+      { name: 'load_command_snapshot', sig: '() -> tuple[PortingModule, ...]', desc: 'Reads commands_snapshot.json, returns cached tuple of 150+ command modules', calls: [] },
+      { name: 'built_in_command_names', sig: '() -> frozenset[str]', desc: 'Returns set of all built-in command names', calls: [] },
+      { name: 'build_command_backlog', sig: '() -> PortingBacklog', desc: 'Creates backlog from all ported commands', calls: [] },
+      { name: 'get_command', sig: '(name: str) -> PortingModule | None', desc: 'Lookup single command by exact name', calls: [] },
+      { name: 'get_commands', sig: '(cwd, include_plugin, include_skill) -> tuple[PortingModule, ...]', desc: 'Returns filtered command list', calls: [] },
+      { name: 'find_commands', sig: '(query: str, limit: int = 20) -> list[PortingModule]', desc: 'Search commands by name substring', calls: [] },
+      { name: 'execute_command', sig: '(name: str, prompt: str) -> CommandExecution', desc: 'Executes a named command, returns execution result', calls: ['get_command'] },
+      { name: 'render_command_index', sig: '(limit, query) -> str', desc: 'Renders formatted command list', calls: ['find_commands'] }
+    ],
+    imports: ['models']
+  },
+  'tools.py': {
+    category: 'Registry', phase: 'routing',
+    desc: 'Loads 100+ tools from JSON snapshot. Provides lookup, permission filtering, and execution.',
+    functions: [
+      { name: 'load_tool_snapshot', sig: '() -> tuple[PortingModule, ...]', desc: 'Reads tools_snapshot.json, returns cached tuple of 100+ tool modules', calls: [] },
+      { name: 'build_tool_backlog', sig: '() -> PortingBacklog', desc: 'Creates backlog from all ported tools', calls: [] },
+      { name: 'get_tool', sig: '(name: str) -> PortingModule | None', desc: 'Lookup single tool by exact name', calls: [] },
+      { name: 'filter_tools_by_permission_context', sig: '(tools, permission_context) -> tuple[PortingModule, ...]', desc: 'Filters out denied tools using ToolPermissionContext', calls: ['ToolPermissionContext.blocks'] },
+      { name: 'get_tools', sig: '(simple_mode, include_mcp, permission_context) -> tuple[PortingModule, ...]', desc: 'Returns filtered tool list with permission gating', calls: ['filter_tools_by_permission_context'] },
+      { name: 'find_tools', sig: '(query: str, limit: int = 20) -> list[PortingModule]', desc: 'Search tools by name substring', calls: [] },
+      { name: 'execute_tool', sig: '(name: str, payload: str) -> ToolExecution', desc: 'Executes a named tool, returns execution result', calls: ['get_tool'] },
+      { name: 'render_tool_index', sig: '(limit, query) -> str', desc: 'Renders formatted tool list', calls: ['find_tools'] }
+    ],
+    imports: ['models','permissions']
+  },
+  'execution_registry.py': {
+    category: 'Registry', phase: 'execution',
+    desc: 'Bridges commands/tools with their execution logic via MirroredCommand/MirroredTool wrappers.',
+    functions: [
+      { name: 'MirroredCommand.execute', sig: '(self, prompt: str) -> str', desc: 'Delegates to execute_command()', calls: ['execute_command'] },
+      { name: 'MirroredTool.execute', sig: '(self, payload: str) -> str', desc: 'Delegates to execute_tool()', calls: ['execute_tool'] },
+      { name: 'ExecutionRegistry.command', sig: '(self, name: str) -> MirroredCommand | None', desc: 'Lookup command wrapper by name', calls: [] },
+      { name: 'ExecutionRegistry.tool', sig: '(self, name: str) -> MirroredTool | None', desc: 'Lookup tool wrapper by name', calls: [] },
+      { name: 'build_execution_registry', sig: '() -> ExecutionRegistry', desc: 'Wraps all PORTED_COMMANDS and PORTED_TOOLS into registry', calls: [] }
+    ],
+    imports: ['commands','tools']
+  },
+  'session_store.py': {
+    category: 'Persistence', phase: 'persistence',
+    desc: 'Session persistence layer. Saves/loads sessions as JSON files in .port_sessions/ directory.',
+    functions: [
+      { name: 'save_session', sig: '(session: StoredSession, directory: Path | None) -> Path', desc: 'Serializes session to {session_id}.json', calls: [] },
+      { name: 'load_session', sig: '(session_id: str, directory: Path | None) -> StoredSession', desc: 'Deserializes session from JSON file', calls: [] }
+    ],
+    imports: []
+  },
+  'setup.py': {
+    category: 'Init', phase: 'setup',
+    desc: 'Workspace setup and configuration. Detects Python version, platform, runs prefetches.',
+    functions: [
+      { name: 'build_workspace_setup', sig: '() -> WorkspaceSetup', desc: 'Detects Python version, implementation, platform', calls: [] },
+      { name: 'run_setup', sig: '(cwd: Path | None, trusted: bool = True) -> SetupReport', desc: 'Full setup: workspace detection + prefetch + deferred init', calls: ['build_workspace_setup','run_deferred_init','start_mdm_raw_read','start_keychain_prefetch','start_project_scan'] },
+      { name: 'WorkspaceSetup.startup_steps', sig: '(self) -> tuple[str, ...]', desc: 'Returns list of startup step descriptions', calls: [] },
+      { name: 'SetupReport.as_markdown', sig: '(self) -> str', desc: 'Renders setup report as markdown', calls: ['DeferredInitResult.as_lines'] }
+    ],
+    imports: ['deferred_init','prefetch']
+  },
+  'bootstrap_graph.py': {
+    category: 'Init', phase: 'setup',
+    desc: 'Defines the 7-stage bootstrap sequence from prefetch to query engine loop.',
+    functions: [
+      { name: 'build_bootstrap_graph', sig: '() -> BootstrapGraph', desc: 'Creates the 7-stage bootstrap initialization graph', calls: [] },
+      { name: 'BootstrapGraph.as_markdown', sig: '(self) -> str', desc: 'Renders bootstrap stages as markdown list', calls: [] }
+    ],
+    imports: []
+  },
+  'deferred_init.py': {
+    category: 'Init', phase: 'setup',
+    desc: 'Trust-gated initialization. Controls which subsystems (plugins, skills, MCP, hooks) init.',
+    functions: [
+      { name: 'run_deferred_init', sig: '(trusted: bool) -> DeferredInitResult', desc: 'Returns init flags based on trust level', calls: [] },
+      { name: 'DeferredInitResult.as_lines', sig: '(self) -> tuple[str, ...]', desc: 'Formats init results as text lines', calls: [] }
+    ],
+    imports: []
+  },
+  'prefetch.py': {
+    category: 'Init', phase: 'setup',
+    desc: 'Background startup operations: MDM reads, keychain, project scanning.',
+    functions: [
+      { name: 'start_mdm_raw_read', sig: '() -> PrefetchResult', desc: 'Initiates MDM raw read prefetch', calls: [] },
+      { name: 'start_keychain_prefetch', sig: '() -> PrefetchResult', desc: 'Initiates keychain prefetch', calls: [] },
+      { name: 'start_project_scan', sig: '(root: Path) -> PrefetchResult', desc: 'Initiates project directory scan', calls: [] }
+    ],
+    imports: []
+  },
+  'system_init.py': {
+    category: 'Init', phase: 'setup',
+    desc: 'Builds the system initialization message with command/tool counts.',
+    functions: [
+      { name: 'build_system_init_message', sig: '(trusted: bool = True) -> str', desc: 'Creates system init message listing capabilities', calls: ['run_setup','get_commands','get_tools','built_in_command_names'] }
+    ],
+    imports: ['commands','setup','tools']
+  },
+  'context.py': {
+    category: 'Init', phase: 'input',
+    desc: 'Workspace context detection. Locates source, test, asset, and archive directories.',
+    functions: [
+      { name: 'build_port_context', sig: '(base: Path | None) -> PortContext', desc: 'Scans workspace, counts files, checks archive availability', calls: [] },
+      { name: 'render_context', sig: '(context: PortContext) -> str', desc: 'Formats context as human-readable string', calls: [] }
+    ],
+    imports: []
+  },
+  'history.py': {
+    category: 'Tracking', phase: 'persistence',
+    desc: 'Event history tracking. Records titled events during session execution.',
+    functions: [
+      { name: 'HistoryLog.add', sig: '(self, title: str, detail: str) -> None', desc: 'Appends a new event to the history', calls: [] },
+      { name: 'HistoryLog.as_markdown', sig: '(self) -> str', desc: 'Renders all events as markdown', calls: [] }
+    ],
+    imports: []
+  },
+  'transcript.py': {
+    category: 'Tracking', phase: 'persistence',
+    desc: 'Transcript storage for conversation messages. Supports compaction and replay.',
+    functions: [
+      { name: 'TranscriptStore.append', sig: '(self, entry: str) -> None', desc: 'Adds message to transcript', calls: [] },
+      { name: 'TranscriptStore.compact', sig: '(self, keep_last: int = 10) -> None', desc: 'Trims old entries, keeps last N messages', calls: [] },
+      { name: 'TranscriptStore.replay', sig: '(self) -> tuple[str, ...]', desc: 'Returns all entries as tuple for replay', calls: [] },
+      { name: 'TranscriptStore.flush', sig: '(self) -> None', desc: 'Marks transcript as flushed before persistence', calls: [] }
+    ],
+    imports: []
+  },
+  'models.py': {
+    category: 'Data', phase: 'data',
+    desc: 'Shared dataclasses: Subsystem, PortingModule, PermissionDenial, UsageSummary, PortingBacklog.',
+    functions: [
+      { name: 'UsageSummary.add_turn', sig: '(self, prompt: str, output: str) -> UsageSummary', desc: 'Estimates tokens from word count, returns new summary', calls: [] },
+      { name: 'PortingBacklog.summary_lines', sig: '(self) -> list[str]', desc: 'Formats backlog as summary lines', calls: [] }
+    ],
+    imports: []
+  },
+  'permissions.py': {
+    category: 'Data', phase: 'routing',
+    desc: 'Tool permission management. Deny lists and prefix-based blocking.',
+    functions: [
+      { name: 'ToolPermissionContext.from_iterables', sig: '(deny_names, deny_prefixes) -> ToolPermissionContext', desc: 'Factory from lists of denied names/prefixes', calls: [] },
+      { name: 'ToolPermissionContext.blocks', sig: '(self, tool_name: str) -> bool', desc: 'Checks if tool is blocked by name or prefix', calls: [] }
+    ],
+    imports: []
+  },
+  'port_manifest.py': {
+    category: 'Analysis', phase: 'analysis',
+    desc: 'Workspace manifest builder. Counts Python files, catalogs top-level modules.',
+    functions: [
+      { name: 'build_port_manifest', sig: '(src_root: Path | None) -> PortManifest', desc: 'Scans src/ directory, counts files, groups by module', calls: [] },
+      { name: 'PortManifest.to_markdown', sig: '(self) -> str', desc: 'Renders manifest as markdown table', calls: [] }
+    ],
+    imports: []
+  },
+  'parity_audit.py': {
+    category: 'Analysis', phase: 'analysis',
+    desc: 'Compares Python workspace against archived TypeScript snapshot for coverage metrics.',
+    functions: [
+      { name: 'run_parity_audit', sig: '() -> ParityAuditResult', desc: 'Full parity check: root files, dirs, commands, tools', calls: ['_reference_surface','_snapshot_count'] },
+      { name: '_reference_surface', sig: '() -> dict', desc: 'Loads archive_surface_snapshot.json', calls: [] },
+      { name: '_snapshot_count', sig: '(path: Path) -> int', desc: 'Counts entries in a JSON snapshot file', calls: [] },
+      { name: 'ParityAuditResult.to_markdown', sig: '(self) -> str', desc: 'Renders audit results as markdown', calls: [] }
+    ],
+    imports: []
+  },
+  'command_graph.py': {
+    category: 'Analysis', phase: 'routing',
+    desc: 'Segments commands into builtins, plugin-like, and skill-like categories.',
+    functions: [
+      { name: 'build_command_graph', sig: '() -> CommandGraph', desc: 'Categorizes all commands into three groups', calls: ['get_commands'] },
+      { name: 'CommandGraph.flattened', sig: '(self) -> tuple[PortingModule, ...]', desc: 'Returns all commands in flat tuple', calls: [] },
+      { name: 'CommandGraph.as_markdown', sig: '(self) -> str', desc: 'Renders command graph as markdown', calls: [] }
+    ],
+    imports: ['commands','models']
+  },
+  'tool_pool.py': {
+    category: 'Analysis', phase: 'routing',
+    desc: 'Assembles filtered tool pool based on mode and permissions.',
+    functions: [
+      { name: 'assemble_tool_pool', sig: '(simple_mode, include_mcp, permission_context) -> ToolPool', desc: 'Builds tool pool with filtering applied', calls: ['get_tools'] },
+      { name: 'ToolPool.as_markdown', sig: '(self) -> str', desc: 'Renders tool pool as markdown', calls: [] }
+    ],
+    imports: ['models','permissions','tools']
+  },
+  'cost_tracker.py': {
+    category: 'Tracking', phase: 'persistence',
+    desc: 'Token usage and cost tracking.',
+    functions: [
+      { name: 'CostTracker.record', sig: '(self, label: str, units: int) -> None', desc: 'Records a cost event with label and unit count', calls: [] }
+    ],
+    imports: []
+  },
+  'remote_runtime.py': {
+    category: 'Modes', phase: 'mode',
+    desc: 'Remote execution mode stubs: remote, SSH, teleport.',
+    functions: [
+      { name: 'run_remote_mode', sig: '(target: str) -> RuntimeModeReport', desc: 'Remote control mode stub', calls: [] },
+      { name: 'run_ssh_mode', sig: '(target: str) -> RuntimeModeReport', desc: 'SSH proxy mode stub', calls: [] },
+      { name: 'run_teleport_mode', sig: '(target: str) -> RuntimeModeReport', desc: 'Teleport resume/create stub', calls: [] }
+    ],
+    imports: []
+  },
+  'direct_modes.py': {
+    category: 'Modes', phase: 'mode',
+    desc: 'Direct connection mode stubs: direct-connect, deep-link.',
+    functions: [
+      { name: 'run_direct_connect', sig: '(target: str) -> DirectModeReport', desc: 'Direct-connect branching stub', calls: [] },
+      { name: 'run_deep_link', sig: '(target: str) -> DirectModeReport', desc: 'Deep-link branching stub', calls: [] }
+    ],
+    imports: []
+  },
+  'query.py': {
+    category: 'Data', phase: 'data',
+    desc: 'Simple query/response dataclasses.',
+    functions: [],
+    imports: []
+  },
+  'tasks.py': {
+    category: 'Data', phase: 'data',
+    desc: 'Default porting task definitions.',
+    functions: [
+      { name: 'default_tasks', sig: '() -> list[PortingTask]', desc: 'Returns default list of porting tasks', calls: [] }
+    ],
+    imports: []
+  },
+  'QueryEngine.py': {
+    category: 'Core', phase: 'routing',
+    desc: 'Legacy-compatible wrapper extending QueryEnginePort.',
+    functions: [
+      { name: 'QueryEngineRuntime.route', sig: '(self, prompt: str, limit: int = 5) -> str', desc: 'Delegates to PortRuntime.route_prompt', calls: ['PortRuntime.route_prompt'] }
+    ],
+    imports: ['query_engine','runtime']
+  },
+  'Tool.py': {
+    category: 'Data', phase: 'data',
+    desc: 'Tool definition dataclass with DEFAULT_TOOLS constant.',
+    functions: [],
+    imports: []
+  }
+};
+
+// The main execution flow tree
+const FLOW_DATA = {
+  name: 'main(argv)',
+  sig: '(argv: list[str] | None) -> int',
+  phase: 'cli',
+  desc: 'CLI entrypoint. Parses arguments, dispatches to subcommand.',
+  module: 'main.py',
+  concept: null,
+  children: [
+    {
+      name: 'build_parser()',
+      sig: '() -> ArgumentParser',
+      phase: 'cli',
+      desc: 'Creates argparse with 24 subcommands: summary, manifest, parity-audit, commands, tools, route, bootstrap, turn-loop, etc.',
+      module: 'main.py',
+      children: [
+        { name: 'summary', phase: 'cli', desc: 'Workspace metadata summary', module: 'main.py', leaf: true },
+        { name: 'manifest', phase: 'cli', desc: 'Python file inventory', module: 'main.py', leaf: true },
+        { name: 'parity-audit', phase: 'analysis', desc: 'Coverage vs TS archive', module: 'main.py', leaf: true },
+        { name: 'commands / tools', phase: 'routing', desc: 'List commands or tools', module: 'main.py', leaf: true },
+        { name: 'route <prompt>', phase: 'routing', desc: 'Token-match prompt to handlers', module: 'main.py', leaf: true },
+        {
+          name: 'bootstrap <prompt>',
+          phase: 'routing',
+          desc: 'Full session bootstrap \u2014 the primary flow. Click to explore.',
+          module: 'main.py',
+          highlight: true,
+          children: [
+            {
+              name: '\u2460 build_port_context()',
+              sig: '(base: Path) -> PortContext',
+              phase: 'input',
+              step: 1,
+              desc: 'Scans workspace directories. Returns PortContext with source_root, tests_root, assets_root, archive_root, file counts, archive_available flag.',
+              module: 'context.py',
+              dataflow: 'Path \u2192 PortContext',
+              children: [
+                { name: 'resolve source_root', phase: 'input', desc: 'Finds src/ directory', leaf: true },
+                { name: 'resolve tests_root', phase: 'input', desc: 'Finds tests/ directory', leaf: true },
+                { name: 'count python files', phase: 'input', desc: 'rglob("*.py") on source', leaf: true },
+                { name: 'check archive', phase: 'input', desc: 'Tests if archive dir exists', leaf: true }
+              ]
+            },
+            {
+              name: '\u2461 run_setup()',
+              sig: '(cwd, trusted=True) -> SetupReport',
+              phase: 'setup',
+              step: 2,
+              desc: 'Full workspace setup: detects Python environment, runs parallel prefetches, executes trust-gated deferred init.',
+              module: 'setup.py',
+              concept: 'hooks',
+              dataflow: 'Path \u2192 SetupReport',
+              children: [
+                { name: 'build_workspace_setup()', phase: 'setup', desc: 'Detects Python version, implementation (CPython), platform', module: 'setup.py', leaf: true },
+                { name: 'start_mdm_raw_read()', phase: 'setup', desc: 'Parallel prefetch: MDM raw read', module: 'prefetch.py', leaf: true },
+                { name: 'start_keychain_prefetch()', phase: 'setup', desc: 'Parallel prefetch: keychain access', module: 'prefetch.py', leaf: true },
+                { name: 'start_project_scan(root)', phase: 'setup', desc: 'Parallel prefetch: project directory scan', module: 'prefetch.py', leaf: true },
+                {
+                  name: 'run_deferred_init(trusted)',
+                  sig: '(trusted: bool) -> DeferredInitResult',
+                  phase: 'setup',
+                  desc: 'Trust-gated init: plugin_init, skill_init, mcp_prefetch, session_hooks. Only runs if trusted=True.',
+                  module: 'deferred_init.py',
+                  concept: 'hooks',
+                  children: [
+                    { name: 'plugin_init', phase: 'setup', desc: 'Initialize plugin subsystem', leaf: true },
+                    { name: 'skill_init', phase: 'setup', desc: 'Initialize skill subsystem', leaf: true },
+                    { name: 'mcp_prefetch', phase: 'setup', desc: 'Prefetch MCP server connections', leaf: true },
+                    { name: 'session_hooks', phase: 'setup', desc: 'Attach session lifecycle hooks', leaf: true }
+                  ]
+                }
+              ]
+            },
+            {
+              name: '\u2462 HistoryLog()',
+              phase: 'persistence',
+              step: 3,
+              desc: 'Creates event audit trail. Records context, registry, routing, execution, turn, session_store events throughout bootstrap.',
+              module: 'history.py',
+              leaf: true
+            },
+            {
+              name: '\u2463 QueryEnginePort.from_workspace()',
+              sig: '() -> QueryEnginePort',
+              phase: 'routing',
+              step: 4,
+              desc: 'Factory method. Creates engine with fresh PortManifest, uuid4 session_id, empty messages, zero usage, fresh TranscriptStore.',
+              module: 'query_engine.py',
+              concept: 'turn_loop',
+              dataflow: '\u2192 QueryEnginePort',
+              children: [
+                { name: 'build_port_manifest()', phase: 'analysis', desc: 'Scans src/ for Python files, groups by module', module: 'port_manifest.py', leaf: true },
+                { name: 'uuid4().hex', phase: 'routing', desc: 'Generates unique session ID', leaf: true },
+                { name: 'QueryEngineConfig()', phase: 'routing', desc: 'max_turns=8, max_budget_tokens=2000, compact_after_turns=12', leaf: true },
+                { name: 'TranscriptStore()', phase: 'persistence', desc: 'Empty transcript, flushed=False', leaf: true }
+              ]
+            },
+            {
+              name: '\u2464 route_prompt()',
+              sig: '(prompt: str, limit: int) -> list[RoutedMatch]',
+              phase: 'routing',
+              step: 5,
+              desc: 'Core routing engine. Tokenizes prompt, scores all 150+ commands and 100+ tools, returns top matches sorted by score.',
+              module: 'runtime.py',
+              concept: 'commands_vs_tools',
+              dataflow: 'str \u2192 list[RoutedMatch]',
+              children: [
+                { name: 'tokenize prompt', phase: 'routing', desc: 'Split on / and -, lowercase, filter empty. "review MCP tool" \u2192 {"review","mcp","tool"}', leaf: true },
+                { name: '_collect_matches(commands)', phase: 'routing', desc: 'Score each of 150+ commands against tokens. Each token hit in name/source/responsibility adds 1 to score.', leaf: true },
+                { name: '_collect_matches(tools)', phase: 'routing', desc: 'Score each of 100+ tools against tokens. Same scoring algorithm.', leaf: true },
+                { name: 'sort + select top', phase: 'routing', desc: 'Sort by (-score, kind, name). Pick best command + best tool first, fill rest up to limit.', leaf: true }
+              ]
+            },
+            {
+              name: '\u2465 build_execution_registry()',
+              sig: '() -> ExecutionRegistry',
+              phase: 'execution',
+              step: 6,
+              desc: 'Wraps all PORTED_COMMANDS as MirroredCommand and all PORTED_TOOLS as MirroredTool. Registry provides name-based lookup.',
+              module: 'execution_registry.py',
+              concept: 'skills',
+              dataflow: '\u2192 ExecutionRegistry',
+              children: [
+                { name: 'Wrap 150+ commands', phase: 'execution', desc: 'MirroredCommand(name, source_hint) for each', leaf: true },
+                { name: 'Wrap 100+ tools', phase: 'execution', desc: 'MirroredTool(name, source_hint) for each', leaf: true }
+              ]
+            },
+            {
+              name: '\u2466 Execute matched commands',
+              phase: 'execution',
+              step: 7,
+              desc: 'For each RoutedMatch where kind="command", lookup in ExecutionRegistry and call execute(prompt).',
+              module: 'execution_registry.py',
+              dataflow: 'RoutedMatch \u2192 CommandExecution',
+              children: [
+                { name: 'registry.command(name)', phase: 'execution', desc: 'Lookup MirroredCommand by name', leaf: true },
+                { name: '.execute(prompt)', phase: 'execution', desc: 'Delegates to commands.execute_command(name, prompt)', leaf: true },
+                { name: '\u2192 CommandExecution', phase: 'execution', desc: 'Returns name, source_hint, handled, message', leaf: true }
+              ]
+            },
+            {
+              name: '\u2467 Execute matched tools',
+              phase: 'execution',
+              step: 8,
+              desc: 'For each RoutedMatch where kind="tool", lookup in ExecutionRegistry and call execute(prompt).',
+              module: 'execution_registry.py',
+              dataflow: 'RoutedMatch \u2192 ToolExecution',
+              children: [
+                { name: 'registry.tool(name)', phase: 'execution', desc: 'Lookup MirroredTool by name', leaf: true },
+                { name: '.execute(payload)', phase: 'execution', desc: 'Delegates to tools.execute_tool(name, payload)', leaf: true },
+                { name: '\u2192 ToolExecution', phase: 'execution', desc: 'Returns name, source_hint, handled, message', leaf: true }
+              ]
+            },
+            {
+              name: '\u2468 _infer_permission_denials()',
+              phase: 'routing',
+              step: 9,
+              desc: 'Auto-blocks dangerous tools. Any tool with "bash" in name gets denied with reason "destructive shell execution remains gated".',
+              module: 'runtime.py',
+              concept: 'permission_gating',
+              dataflow: 'list[RoutedMatch] \u2192 list[PermissionDenial]',
+              leaf: true
+            },
+            {
+              name: '\u2469 stream_submit_message()',
+              sig: '(...) -> Generator[dict]',
+              phase: 'streaming',
+              step: 10,
+              desc: 'Yields 6 streaming events incrementally. This is how the agent sends real-time updates during processing.',
+              module: 'query_engine.py',
+              concept: 'turn_loop',
+              dataflow: 'prompt \u2192 stream events',
+              children: [
+                { name: 'yield message_start', phase: 'streaming', desc: '{type: "message_start", session_id, prompt}', leaf: true },
+                { name: 'yield command_match', phase: 'streaming', desc: '{type: "command_match", commands: [...]}', leaf: true },
+                { name: 'yield tool_match', phase: 'streaming', desc: '{type: "tool_match", tools: [...]}', leaf: true },
+                { name: 'yield permission_denial', phase: 'streaming', desc: '{type: "permission_denial", denials: [...]}', leaf: true },
+                { name: 'yield message_delta', phase: 'streaming', desc: '{type: "message_delta", text: result.output}', leaf: true },
+                { name: 'yield message_stop', phase: 'streaming', desc: '{type: "message_stop", usage: {...}, stop_reason}', leaf: true }
+              ]
+            },
+            {
+              name: '\u246A submit_message()',
+              sig: '(prompt, cmds, tools, denials) -> TurnResult',
+              phase: 'routing',
+              step: 11,
+              desc: 'Core turn execution. Checks limits, formats output, tracks tokens, compacts old messages, records in transcript.',
+              module: 'query_engine.py',
+              concept: 'turn_loop',
+              dataflow: 'prompt \u2192 TurnResult',
+              children: [
+                { name: 'check max_turns', phase: 'routing', desc: 'If len(messages) >= max_turns \u2192 stop_reason="max_turns_reached"', leaf: true },
+                { name: '_format_output()', phase: 'routing', desc: 'Builds summary from matched commands/tools/denials', leaf: true },
+                { name: 'UsageSummary.add_turn()', phase: 'routing', desc: 'Estimates tokens: input=len(prompt.split()), output=len(output.split())', leaf: true },
+                { name: 'check budget', phase: 'routing', desc: 'If projected_tokens >= max_budget_tokens \u2192 stop_reason="max_budget_reached"', leaf: true },
+                { name: 'append to messages', phase: 'routing', desc: 'mutable_messages.append(prompt)', leaf: true },
+                { name: 'transcript.append()', phase: 'persistence', desc: 'TranscriptStore.append(prompt) for replay', leaf: true },
+                { name: 'compact if needed', phase: 'persistence', desc: 'If messages > compact_after_turns(12), trim to last 12', leaf: true },
+                { name: '\u2192 TurnResult', phase: 'routing', desc: 'prompt, output, matched_commands, matched_tools, denials, usage, stop_reason', leaf: true }
+              ]
+            },
+            {
+              name: '\u246B persist_session()',
+              sig: '(self) -> str',
+              phase: 'persistence',
+              step: 12,
+              desc: 'Flushes transcript, serializes session state to JSON file in .port_sessions/ directory.',
+              module: 'query_engine.py',
+              dataflow: 'session state \u2192 .json file',
+              children: [
+                { name: 'flush_transcript()', phase: 'persistence', desc: 'Marks TranscriptStore.flushed = True', leaf: true },
+                { name: 'save_session(StoredSession)', phase: 'persistence', desc: 'Creates .port_sessions/{session_id}.json', module: 'session_store.py',
+                  children: [
+                    { name: 'mkdir .port_sessions/', phase: 'persistence', desc: 'Ensure directory exists', leaf: true },
+                    { name: 'json.dumps()', phase: 'persistence', desc: 'Serialize: session_id, messages, input_tokens, output_tokens', leaf: true },
+                    { name: 'write {id}.json', phase: 'persistence', desc: 'Atomic write to disk', leaf: true }
+                  ]
+                }
+              ]
+            },
+            {
+              name: '\u246C Return RuntimeSession',
+              phase: 'persistence',
+              step: 13,
+              desc: 'Constructs and returns the complete session object with all collected data from steps 1-12.',
+              module: 'runtime.py',
+              dataflow: 'all results \u2192 RuntimeSession',
+              children: [
+                { name: 'prompt', phase: 'input', desc: 'Original user prompt', leaf: true },
+                { name: 'context: PortContext', phase: 'input', desc: 'From step 1', leaf: true },
+                { name: 'setup_report: SetupReport', phase: 'setup', desc: 'From step 2', leaf: true },
+                { name: 'system_init_message', phase: 'setup', desc: 'Built from setup + commands + tools', leaf: true },
+                { name: 'history: HistoryLog', phase: 'persistence', desc: 'From step 3, accumulated', leaf: true },
+                { name: 'routed_matches', phase: 'routing', desc: 'From step 5', leaf: true },
+                { name: 'turn_result: TurnResult', phase: 'routing', desc: 'From step 11', leaf: true },
+                { name: 'command_executions', phase: 'execution', desc: 'From step 7', leaf: true },
+                { name: 'tool_executions', phase: 'execution', desc: 'From step 8', leaf: true },
+                { name: 'stream_events', phase: 'streaming', desc: 'From step 10', leaf: true },
+                { name: 'persisted_path', phase: 'persistence', desc: 'From step 12', leaf: true }
+              ]
+            }
+          ]
+        },
+        { name: 'turn-loop', phase: 'routing', desc: 'Multi-turn conversation', module: 'main.py', leaf: true },
+        { name: 'remote-mode / ssh / teleport', phase: 'mode', desc: 'Remote runtime stubs', module: 'main.py', leaf: true },
+        { name: 'direct-connect / deep-link', phase: 'mode', desc: 'Direct connection stubs', module: 'main.py', leaf: true }
+      ]
+    }
+  ]
+};
+
+// Module dependency adjacency
+const MODULE_DEPS = {};
+Object.entries(MODULES).forEach(([file, m]) => {
+  MODULE_DEPS[file] = m.imports.map(i => {
+    // resolve to filename
+    const candidates = Object.keys(MODULES);
+    const match = candidates.find(c => c === i + '.py') || candidates.find(c => c.toLowerCase() === i.toLowerCase() + '.py');
+    return match || i + '.py';
+  }).filter(f => MODULES[f]);
+});
+
+// ============================================================
+// STATE
+// ============================================================
+let currentView = 'flow';
+let selectedNode = null;
+let animating = false;
+let animStep = -1;
+let showConcepts = true;
+
+// ============================================================
+// CORE SETUP
+// ============================================================
+const svg = d3.select('#svg');
+const gRoot = svg.append('g').attr('class', 'root');
+const tooltip = d3.select('#tooltip');
+
+const zoom = d3.zoom()
+  .scaleExtent([0.08, 5])
+  .on('zoom', e => gRoot.attr('transform', e.transform));
+svg.call(zoom);
+
+// Defs for arrows and glows
+const defs = svg.append('defs');
+defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10').attr('refX',10).attr('refY',5)
+  .attr('markerWidth',8).attr('markerHeight',8).attr('orient','auto-start-reverse')
+  .append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#475569');
+
+// Glow filter
+const glow = defs.append('filter').attr('id','glow');
+glow.append('feGaussianBlur').attr('stdDeviation','4').attr('result','coloredBlur');
+const feMerge = glow.append('feMerge');
+feMerge.append('feMergeNode').attr('in','coloredBlur');
+feMerge.append('feMergeNode').attr('in','SourceGraphic');
+
+// Pulse glow
+const pulseGlow = defs.append('filter').attr('id','pulse-glow');
+pulseGlow.append('feGaussianBlur').attr('stdDeviation','8').attr('result','coloredBlur');
+const pm = pulseGlow.append('feMerge');
+pm.append('feMergeNode').attr('in','coloredBlur');
+pm.append('feMergeNode').attr('in','SourceGraphic');
+
+// ============================================================
+// TOOLTIP HELPERS
+// ============================================================
+function showTooltip(event, data) {
+  let html = `<div class="tt-name">${data.name || data.data?.name || ''}</div>`;
+  if (data.sig || data.data?.sig) html += `<div class="tt-sig">${data.sig || data.data?.sig}</div>`;
+  if (data.desc || data.data?.desc) html += `<div class="tt-desc">${data.desc || data.data?.desc}</div>`;
+  if (data.module || data.data?.module) html += `<div class="tt-desc" style="color:#8b5cf6;margin-top:4px">${data.module || data.data?.module}</div>`;
+  if (data.dataflow || data.data?.dataflow) html += `<div class="tt-desc" style="color:#10b981;margin-top:2px">${data.dataflow || data.data?.dataflow}</div>`;
+  tooltip.html(html).style('opacity', 1)
+    .style('left', (event.pageX + 14) + 'px')
+    .style('top', (event.pageY - 14) + 'px');
+}
+function hideTooltip() { tooltip.style('opacity', 0); }
+
+// ============================================================
+// DETAIL PANEL
+// ============================================================
+function showDetail(data) {
+  const panel = d3.select('#detail-panel').classed('hidden', false);
+  const d = data.data || data;
+  d3.select('#dp-title').text(d.name);
+  d3.select('#dp-subtitle').text(d.module || d.category || '');
+  const content = d3.select('#dp-content').html('');
+
+  // Description
+  if (d.desc) {
+    const sec = content.append('div').attr('class','dp-section');
+    sec.append('div').attr('class','dp-section-title').text('Description');
+    sec.append('div').style('font-size','12px').style('color','var(--text2)').style('line-height','1.6').text(d.desc);
+  }
+
+  // Signature
+  if (d.sig) {
+    const sec = content.append('div').attr('class','dp-section');
+    sec.append('div').attr('class','dp-section-title').text('Signature');
+    sec.append('div').attr('class','dp-code').text(d.name + d.sig);
+  }
+
+  // Data flow
+  if (d.dataflow) {
+    const sec = content.append('div').attr('class','dp-section');
+    sec.append('div').attr('class','dp-section-title').text('Data Flow');
+    sec.append('div').style('font-size','13px').style('color','var(--green)').text(d.dataflow);
+  }
+
+  // Phase
+  if (d.phase) {
+    const sec = content.append('div').attr('class','dp-section');
+    sec.append('div').attr('class','dp-section-title').text('Phase');
+    const tag = sec.append('span').attr('class','dp-tag').text(d.phase)
+      .style('background', PHASE_COLORS[d.phase] + '22').style('color', PHASE_COLORS[d.phase]).style('border', '1px solid ' + PHASE_COLORS[d.phase] + '44');
+  }
+
+  // Step number
+  if (d.step) {
+    const sec = content.append('div').attr('class','dp-section');
+    sec.append('div').attr('class','dp-section-title').text('Bootstrap Step');
+    sec.append('div').style('font-size','20px').style('font-weight','700').style('color','var(--accent)').text('Step ' + d.step + ' of 13');
+  }
+
+  // Children
+  if (d.children || d._children) {
+    const kids = d.children || d._children;
+    const sec = content.append('div').attr('class','dp-section');
+    sec.append('div').attr('class','dp-section-title').text('Sub-steps (' + kids.length + ')');
+    const list = sec.append('ul').attr('class','dp-list');
+    kids.forEach(c => {
+      list.append('li').text(c.name || c.data?.name);
+    });
+  }
+
+  // Concept
+  if (d.concept) {
+    const concept = CONCEPTS.find(c => c.title.toLowerCase().replace(/\s+/g,'_') === d.concept || c.title.toLowerCase() === d.concept);
+    if (concept) {
+      const sec = content.append('div').attr('class','dp-section');
+      sec.append('div').attr('class','dp-section-title').text('Related Concept');
+      const card = sec.append('div').attr('class','dp-concept');
+      card.append('h4').text(concept.title);
+      card.append('p').text(concept.body);
+    }
+  }
+
+  // For module nodes
+  if (d.functions && d.functions.length > 0) {
+    const sec = content.append('div').attr('class','dp-section');
+    sec.append('div').attr('class','dp-section-title').text('Functions (' + d.functions.length + ')');
+    d.functions.forEach(fn => {
+      const card = sec.append('div').style('margin-bottom','8px').style('padding','8px')
+        .style('background','var(--bg)').style('border','1px solid var(--border)').style('border-radius','6px');
+      card.append('div').style('font-size','12px').style('font-weight','700').style('color','var(--green)').text(fn.name);
+      card.append('div').style('font-size','10px').style('color','var(--text3)').style('margin-top','2px').text(fn.sig);
+      card.append('div').style('font-size','11px').style('color','var(--text2)').style('margin-top','4px').text(fn.desc);
+    });
+  }
+}
+
+d3.select('#dp-close').on('click', () => d3.select('#detail-panel').classed('hidden', true));
+
+// ============================================================
+// VIEW: USAGE FLOW (PRIMARY)
+// ============================================================
+function renderFlowView() {
+  gRoot.selectAll('*').remove();
+
+  const root = d3.hierarchy(FLOW_DATA, d => d.children);
+
+  // Collapse deep children initially
+  root.each(d => {
+    if (d.depth > 2 && d.children) {
+      d._children = d.children;
+      d.children = null;
+    }
+  });
+
+  function update(source) {
+    const treeLayout = d3.tree().nodeSize([56, 300]).separation((a,b) => a.parent === b.parent ? 1 : 1.4);
+    treeLayout(root);
+
+    const nodes = root.descendants();
+    const links = root.links();
+
+    // Links
+    const link = gRoot.selectAll('path.flow-link').data(links, d => d.target.data.name);
+    const linkEnter = link.enter().append('path').attr('class','flow-link')
+      .attr('fill','none').attr('stroke','#334155').attr('stroke-width', 1.5).attr('opacity', 0.6)
+      .attr('d', d3.linkHorizontal().x(d => source.y0 || 0).y(d => source.x0 || 0));
+    link.merge(linkEnter).transition().duration(500)
+      .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x));
+    link.exit().transition().duration(300).attr('opacity',0).remove();
+
+    // Nodes
+    const node = gRoot.selectAll('g.flow-node').data(nodes, d => d.data.name + d.depth);
+    const nodeEnter = node.enter().append('g').attr('class','flow-node')
+      .attr('transform', `translate(${source.y0 || 0},${source.x0 || 0})`)
+      .style('cursor','pointer')
+      .on('click', (e, d) => {
+        if (d.children) { d._children = d.children; d.children = null; }
+        else if (d._children) { d.children = d._children; d._children = null; }
+        showDetail(d);
+        update(d);
+      })
+      .on('mouseenter', (e, d) => showTooltip(e, d.data))
+      .on('mouseleave', hideTooltip);
+
+    // Node background
+    nodeEnter.append('rect')
+      .attr('rx', 8).attr('ry', 8)
+      .attr('x', -10).attr('y', -22)
+      .attr('width', d => Math.max(180, d.data.name.length * 9 + 30))
+      .attr('height', 44)
+      .attr('fill', d => (PHASE_COLORS[d.data.phase] || '#475569') + '15')
+      .attr('stroke', d => (PHASE_COLORS[d.data.phase] || '#475569') + '55')
+      .attr('stroke-width', 1.5);
+
+    // Phase color left border
+    nodeEnter.append('rect')
+      .attr('x', -10).attr('y', -22)
+      .attr('width', 5).attr('height', 44)
+      .attr('rx', 3)
+      .attr('fill', d => PHASE_COLORS[d.data.phase] || '#475569');
+
+    // Highlight effect for bootstrap node
+    nodeEnter.filter(d => d.data.highlight).select('rect')
+      .attr('stroke', d => PHASE_COLORS[d.data.phase]).attr('stroke-width', 2)
+      .attr('filter', 'url(#glow)');
+
+    // Name text
+    nodeEnter.append('text')
+      .attr('x', 4).attr('y', -4)
+      .attr('font-size', d => d.depth <= 1 ? 13 : d.data.step ? 12 : 11)
+      .attr('font-weight', d => d.depth <= 2 ? 700 : d.data.step ? 600 : 400)
+      .attr('fill', d => d.data.step ? PHASE_COLORS[d.data.phase] : '#e2e8f0')
+      .attr('font-family', 'inherit')
+      .text(d => d.data.name);
+
+    // Module label
+    nodeEnter.append('text')
+      .attr('x', 4).attr('y', 12)
+      .attr('font-size', 9)
+      .attr('fill', '#64748b')
+      .attr('font-family', 'inherit')
+      .text(d => d.data.module || '');
+
+    // Expand/collapse indicator
+    nodeEnter.filter(d => d.data.children || d._children || d.children)
+      .append('circle')
+      .attr('cx', d => Math.max(180, d.data.name.length * 9 + 30) - 20)
+      .attr('cy', 0).attr('r', 7)
+      .attr('fill', d => d._children ? PHASE_COLORS[d.data.phase] + '44' : 'transparent')
+      .attr('stroke', d => PHASE_COLORS[d.data.phase] || '#475569')
+      .attr('stroke-width', 1);
+    nodeEnter.filter(d => d.data.children || d._children || d.children)
+      .append('text')
+      .attr('x', d => Math.max(180, d.data.name.length * 9 + 30) - 20)
+      .attr('y', 4).attr('text-anchor','middle')
+      .attr('font-size', 11).attr('fill', d => PHASE_COLORS[d.data.phase] || '#94a3b8')
+      .attr('font-family', 'inherit')
+      .text(d => d._children ? '+' : d.children ? '\u2212' : '');
+
+    // Data flow badge
+    nodeEnter.filter(d => d.data.dataflow).append('text')
+      .attr('x', 4).attr('y', 30)
+      .attr('font-size', 9).attr('fill', '#10b981').attr('font-family', 'inherit')
+      .text(d => d.data.dataflow);
+
+    // Transition
+    const nodeUpdate = node.merge(nodeEnter);
+    nodeUpdate.transition().duration(500).attr('transform', d => `translate(${d.y},${d.x})`);
+    node.exit().transition().duration(300).attr('opacity', 0).remove();
+
+    nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  }
+
+  update(root);
+  renderFlowLegend();
+  renderConceptCards();
+
+  // Fit to view
+  setTimeout(() => fitView(), 100);
+
+  // Store root for animation
+  window._flowRoot = root;
+  window._flowUpdate = update;
+}
+
+function renderFlowLegend() {
+  const legend = d3.select('#legend').html('');
+  legend.append('div').attr('class','legend-title').text('Phases');
+  const phases = [
+    ['Input', 'input'], ['Setup', 'setup'], ['Routing', 'routing'],
+    ['Execution', 'execution'], ['Streaming', 'streaming'], ['Persistence', 'persistence'],
+    ['CLI', 'cli'], ['Analysis', 'analysis']
+  ];
+  phases.forEach(([label, key]) => {
+    const item = legend.append('div').attr('class','legend-item');
+    item.append('div').attr('class','legend-color').style('background', PHASE_COLORS[key]);
+    item.append('span').text(label);
+  });
+}
+
+function renderConceptCards() {
+  const overlay = d3.select('#concept-overlay').html('');
+  if (!showConcepts) return;
+  CONCEPTS.forEach((c, i) => {
+    const card = overlay.append('div').attr('class','concept-card')
+      .on('click', function() {
+        const isExpanded = d3.select(this).classed('expanded');
+        overlay.selectAll('.concept-card').classed('expanded', false);
+        d3.select(this).classed('expanded', !isExpanded);
+      });
+    const title = card.append('div').attr('class','cc-title');
+    title.append('div').attr('class','cc-dot').style('background', c.color);
+    title.append('span').text(c.title);
+    card.append('div').attr('class','cc-body').text(c.body);
+  });
+}
+
+// ============================================================
+// ANIMATION: Step-by-step walkthrough
+// ============================================================
+function startAnimation() {
+  if (animating) { stopAnimation(); return; }
+  animating = true;
+  animStep = 0;
+  d3.select('#btn-animate').classed('active', true);
+  d3.select('#playback').style('display', 'flex');
+  d3.select('#play-btn').html('&#9646;&#9646;');
+
+  const root = window._flowRoot;
+  if (!root) return;
+
+  // First, expand to bootstrap level
+  root.each(d => {
+    if (d.depth <= 2) {
+      if (d._children) { d.children = d._children; d._children = null; }
+    } else {
+      if (d.children) { d._children = d.children; d.children = null; }
+    }
+  });
+  // Find bootstrap node and expand its children
+  const bootstrapNode = root.descendants().find(d => d.data.name === 'bootstrap <prompt>');
+  if (bootstrapNode && bootstrapNode._children) {
+    bootstrapNode.children = bootstrapNode._children;
+    bootstrapNode._children = null;
+  }
+  window._flowUpdate(root);
+
+  // Build step pips
+  const pips = d3.select('#step-progress').html('');
+  for (let i = 0; i < 13; i++) {
+    pips.append('div').attr('class', 'step-pip').attr('data-step', i);
+  }
+
+  setTimeout(() => animateStep(), 800);
+}
+
+function animateStep() {
+  if (!animating || animStep >= 13) { stopAnimation(); return; }
+
+  const root = window._flowRoot;
+  const stepNodes = root.descendants().filter(d => d.data.step === animStep + 1);
+  const stepNode = stepNodes[0];
+
+  if (!stepNode) { animStep++; animateStep(); return; }
+
+  // Update pips
+  d3.selectAll('.step-pip').classed('done', function() { return +this.dataset.step < animStep; })
+    .classed('current', function() { return +this.dataset.step === animStep; });
+
+  // Update label
+  d3.select('#step-label').text(`Step ${animStep + 1}/13: ${stepNode.data.name}`);
+
+  // Highlight the node
+  gRoot.selectAll('g.flow-node').select('rect').transition().duration(300)
+    .attr('stroke-width', function(d) {
+      return d.data.step === animStep + 1 ? 3 : 1.5;
+    })
+    .attr('stroke', function(d) {
+      return d.data.step === animStep + 1 ? '#fff' : (PHASE_COLORS[d.data.phase] || '#475569') + '55';
+    });
+
+  // Expand this step's children
+  if (stepNode._children) {
+    stepNode.children = stepNode._children;
+    stepNode._children = null;
+    window._flowUpdate(stepNode);
+  }
+
+  // Show detail
+  showDetail(stepNode);
+
+  // Animate particle along the link to this node
+  animateParticle(stepNode);
+
+  // Pan to center on this node
+  const canvasW = document.getElementById('canvas-wrap').clientWidth;
+  const canvasH = document.getElementById('canvas-wrap').clientHeight;
+  const t = d3.zoomIdentity.translate(canvasW / 2 - stepNode.y, canvasH / 2 - stepNode.x).scale(1);
+  svg.transition().duration(800).call(zoom.transform, t);
+
+  animStep++;
+  setTimeout(() => animateStep(), 2500);
+}
+
+function animateParticle(targetNode) {
+  if (!targetNode.parent) return;
+  const sx = targetNode.parent.y, sy = targetNode.parent.x;
+  const tx = targetNode.y, ty = targetNode.x;
+  const color = PHASE_COLORS[targetNode.data.phase] || '#3b82f6';
+
+  const particle = gRoot.append('circle').attr('class','particle')
+    .attr('r', 5).attr('fill', color).attr('filter', 'url(#glow)')
+    .attr('cx', sx).attr('cy', sy).attr('opacity', 0.9);
+
+  particle.transition().duration(800).ease(d3.easeCubicInOut)
+    .attr('cx', tx).attr('cy', ty)
+    .transition().duration(400).attr('opacity', 0).remove();
+
+  // Trail
+  for (let i = 1; i <= 3; i++) {
+    gRoot.append('circle').attr('class','particle')
+      .attr('r', 3).attr('fill', color).attr('cx', sx).attr('cy', sy).attr('opacity', 0.4)
+      .transition().delay(i * 100).duration(800).ease(d3.easeCubicInOut)
+      .attr('cx', tx).attr('cy', ty)
+      .transition().duration(300).attr('opacity', 0).remove();
+  }
+}
+
+function stopAnimation() {
+  animating = false;
+  animStep = -1;
+  d3.select('#btn-animate').classed('active', false);
+  d3.select('#playback').style('display', 'none');
+  d3.select('#play-btn').html('&#9654;');
+
+  // Reset highlights
+  gRoot.selectAll('g.flow-node').select('rect').transition().duration(300)
+    .attr('stroke-width', 1.5)
+    .attr('stroke', function(d) { return (PHASE_COLORS[d.data?.phase] || '#475569') + '55'; });
+}
+
+// ============================================================
+// VIEW: FILES
+// ============================================================
+function renderFilesView() {
+  gRoot.selectAll('*').remove();
+  d3.select('#concept-overlay').html('');
+
+  const categories = {};
+  Object.entries(MODULES).forEach(([file, m]) => {
+    if (!categories[m.category]) categories[m.category] = [];
+    categories[m.category].push({ name: file, ...m });
+  });
+
+  const treeData = {
+    name: 'src/',
+    children: Object.entries(categories).map(([cat, files]) => ({
+      name: cat,
+      phase: files[0].phase,
+      children: files.map(f => ({
+        name: f.name,
+        phase: f.phase,
+        desc: f.desc,
+        functions: f.functions,
+        imports: f.imports,
+        category: f.category,
+        leaf: f.functions.length === 0,
+        children: f.functions.length > 0 ? f.functions.map(fn => ({
+          name: fn.name,
+          sig: fn.sig,
+          desc: fn.desc,
+          phase: f.phase,
+          module: f.name,
+          leaf: true
+        })) : undefined
+      }))
+    }))
+  };
+
+  const root = d3.hierarchy(treeData);
+  // Collapse function-level by default
+  root.each(d => {
+    if (d.depth >= 2 && d.children) {
+      d._children = d.children;
+      d.children = null;
+    }
+  });
+
+  function update() {
+    gRoot.selectAll('.file-link, .file-node').remove();
+
+    const treeLayout = d3.tree().nodeSize([38, 260]).separation((a,b) => a.parent === b.parent ? 1 : 1.5);
+    treeLayout(root);
+    const nodes = root.descendants();
+    const links = root.links();
+
+    // Links
+    gRoot.selectAll('path.file-link').data(links).enter().append('path').attr('class','file-link')
+      .attr('fill','none')
+      .attr('stroke', d => (PHASE_COLORS[d.target.data.phase] || '#334155') + '44').attr('stroke-width', 1.5)
+      .attr('d', d3.linkHorizontal().x(d=>d.y).y(d=>d.x));
+
+    // Nodes
+    const ne = gRoot.selectAll('g.file-node').data(nodes).enter().append('g').attr('class','file-node')
+      .attr('transform', d => `translate(${d.y},${d.x})`)
+      .style('cursor','pointer')
+      .on('click', (e, d) => {
+        if (d.children) { d._children = d.children; d.children = null; }
+        else if (d._children) { d.children = d._children; d._children = null; }
+        showDetail(d);
+        update();
+        setTimeout(fitView, 100);
+      })
+      .on('mouseenter', (e, d) => showTooltip(e, d.data))
+      .on('mouseleave', hideTooltip);
+
+    // Background rect for file & function nodes
+    ne.filter(d => d.depth >= 2).append('rect')
+      .attr('x', -6).attr('y', -14).attr('rx', 5).attr('ry', 5)
+      .attr('width', d => Math.max(130, d.data.name.length * 7.5 + 30))
+      .attr('height', 28)
+      .attr('fill', d => (PHASE_COLORS[d.data.phase] || '#475569') + '12')
+      .attr('stroke', d => (PHASE_COLORS[d.data.phase] || '#475569') + '33')
+      .attr('stroke-width', 1);
+
+    // Phase dot
+    ne.append('circle').attr('r', d => d.depth === 0 ? 8 : d.depth === 1 ? 7 : 4)
+      .attr('fill', d => PHASE_COLORS[d.data.phase] || '#475569')
+      .attr('stroke', '#1e293b').attr('stroke-width', 1.5);
+
+    // Text label
+    ne.append('text').attr('x', d => d.depth <= 1 ? 14 : 10).attr('y', 4)
+      .attr('font-size', d => d.depth === 0 ? 14 : d.depth === 1 ? 13 : d.depth === 2 ? 11 : 10)
+      .attr('fill', d => d.depth <= 1 ? '#e2e8f0' : d.depth === 2 ? PHASE_COLORS[d.data.phase] || '#94a3b8' : '#94a3b8')
+      .attr('font-weight', d => d.depth <= 1 ? 700 : d.depth === 2 ? 600 : 400)
+      .attr('font-family', 'inherit').text(d => d.data.name);
+
+    // Expand/collapse indicator
+    ne.filter(d => d._children || (d.children && d.children.length > 0)).append('text')
+      .attr('x', d => d.depth <= 1 ? -14 : -12).attr('y', 4).attr('font-size', 10)
+      .attr('fill', d => PHASE_COLORS[d.data.phase] || '#64748b').attr('text-anchor','middle')
+      .attr('font-family','inherit').text(d => d._children ? '\u25B6' : '\u25BC');
+
+    // Function count badge
+    ne.filter(d => d.depth === 2 && d.data.functions && d.data.functions.length > 0).append('text')
+      .attr('x', d => Math.max(130, d.data.name.length * 7.5 + 30) - 4)
+      .attr('y', 4).attr('font-size', 9).attr('fill', '#64748b').attr('text-anchor','end')
+      .attr('font-family','inherit').text(d => d.data.functions.length + ' fn');
+  }
+
+  update();
+  renderFileLegend();
+  setTimeout(() => fitView(), 150);
+}
+
+function renderFileLegend() {
+  const legend = d3.select('#legend').html('');
+  legend.append('div').attr('class','legend-title').text('Categories');
+  const cats = ['Core','Registry','Init','Tracking','Data','Analysis','Modes'];
+  const catPhases = { Core:'routing', Registry:'routing', Init:'setup', Tracking:'persistence', Data:'data', Analysis:'analysis', Modes:'mode' };
+  cats.forEach(c => {
+    const item = legend.append('div').attr('class','legend-item');
+    item.append('div').attr('class','legend-color').style('background', PHASE_COLORS[catPhases[c]] || '#475569');
+    item.append('span').text(c);
+  });
+}
+
+// ============================================================
+// VIEW: FUNCTIONS (Static grid with cross-module call edges)
+// ============================================================
+function renderFunctionsView() {
+  gRoot.selectAll('*').remove();
+  d3.select('#concept-overlay').html('');
+
+  // Build function data with positions
+  const fnMap = {};
+  const fnAll = [];
+  Object.entries(MODULES).forEach(([file, m]) => {
+    m.functions.forEach(fn => {
+      const d = { id: fn.name, name: fn.name, sig: fn.sig, desc: fn.desc, module: file, phase: m.phase, calls: fn.calls || [] };
+      fnMap[fn.name] = d;
+      fnAll.push(d);
+    });
+  });
+
+  // Build edges
+  const edges = [];
+  fnAll.forEach(n => {
+    (n.calls || []).forEach(target => {
+      if (fnMap[target]) edges.push({ source: n, target: fnMap[target] });
+    });
+  });
+
+  // Group by module
+  const groups = {};
+  fnAll.forEach(n => { if (!groups[n.module]) groups[n.module] = []; groups[n.module].push(n); });
+  const moduleKeys = Object.keys(groups);
+
+  // Layout: modules as boxes in a grid, functions listed vertically inside
+  const boxW = 230, fnH = 26, headerH = 32, boxPad = 10, gapX = 40, gapY = 30;
+  const cols = 5;
+  let x = 0, y = 0, col = 0, rowMaxH = 0;
+  const moduleBoxes = {};
+
+  moduleKeys.forEach((mod, i) => {
+    const fns = groups[mod];
+    const boxH = headerH + fns.length * fnH + boxPad;
+    if (col >= cols) { col = 0; x = 0; y += rowMaxH + gapY; rowMaxH = 0; }
+    moduleBoxes[mod] = { x, y, w: boxW, h: boxH };
+
+    // Position each function within the box
+    fns.forEach((fn, j) => {
+      fn.px = x + boxPad + 6;
+      fn.py = y + headerH + j * fnH + fnH / 2;
+    });
+
+    x += boxW + gapX;
+    col++;
+    rowMaxH = Math.max(rowMaxH, boxH);
+  });
+
+  // Draw edges first (behind everything)
+  const edgeGroup = gRoot.append('g');
+  const edgeSel = edgeGroup.selectAll('path.fn-edge').data(edges).enter().append('path').attr('class','fn-edge')
+    .attr('fill', 'none').attr('stroke', '#475569').attr('stroke-width', 1).attr('opacity', 0.25)
+    .attr('marker-end', 'url(#arrow)')
+    .attr('d', d => {
+      const sx = d.source.px + 180, sy = d.source.py;
+      const tx = d.target.px - 8, ty = d.target.py;
+      const mx = (sx + tx) / 2;
+      return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+    });
+
+  // Draw module boxes
+  moduleKeys.forEach(mod => {
+    const box = moduleBoxes[mod];
+    const phase = MODULES[mod].phase;
+    const color = PHASE_COLORS[phase] || '#475569';
+    const g = gRoot.append('g').attr('transform', `translate(${box.x},${box.y})`);
+
+    // Box background
+    g.append('rect').attr('width', box.w).attr('height', box.h).attr('rx', 10)
+      .attr('fill', color + '0c').attr('stroke', color + '33').attr('stroke-width', 1.5);
+    // Left accent
+    g.append('rect').attr('width', 4).attr('height', box.h).attr('rx', 2).attr('fill', color);
+    // Module name header
+    g.append('text').attr('x', boxPad + 4).attr('y', 22).attr('font-size', 12).attr('font-weight', 700)
+      .attr('fill', color).attr('font-family', 'inherit').text(mod);
+
+    // Function rows
+    groups[mod].forEach((fn, j) => {
+      const fy = headerH + j * fnH;
+      const row = g.append('g').attr('transform', `translate(${boxPad},${fy})`).style('cursor', 'pointer')
+        .on('click', () => showDetail(fn))
+        .on('mouseenter', (e) => {
+          d3.select(e.currentTarget).select('rect').attr('fill', color + '33');
+          // Highlight connected edges
+          edgeSel.attr('opacity', ed => (ed.source.id === fn.id || ed.target.id === fn.id) ? 0.8 : 0.05)
+            .attr('stroke', ed => (ed.source.id === fn.id || ed.target.id === fn.id) ? color : '#475569')
+            .attr('stroke-width', ed => (ed.source.id === fn.id || ed.target.id === fn.id) ? 2 : 1);
+          showTooltip(e, fn);
+        })
+        .on('mouseleave', (e) => {
+          d3.select(e.currentTarget).select('rect').attr('fill', color + '0a');
+          edgeSel.attr('opacity', 0.25).attr('stroke', '#475569').attr('stroke-width', 1);
+          hideTooltip();
+        });
+
+      row.append('rect').attr('x', 0).attr('y', 0).attr('width', boxW - boxPad * 2).attr('height', fnH - 2)
+        .attr('rx', 4).attr('fill', color + '0a');
+
+      // Call count circle
+      const callCount = (fn.calls || []).filter(c => fnMap[c]).length;
+      if (callCount > 0) {
+        row.append('circle').attr('cx', 10).attr('cy', fnH / 2 - 1).attr('r', 8)
+          .attr('fill', color + '33');
+        row.append('text').attr('x', 10).attr('y', fnH / 2 + 3).attr('text-anchor', 'middle')
+          .attr('font-size', 8).attr('fill', color).attr('font-family', 'inherit').text(callCount);
+      }
+
+      row.append('text').attr('x', callCount > 0 ? 24 : 8).attr('y', fnH / 2 + 3)
+        .attr('font-size', 10).attr('fill', '#e2e8f0').attr('font-family', 'inherit')
+        .text(fn.name.length > 26 ? fn.name.slice(0, 23) + '...' : fn.name);
+    });
+  });
+
+  renderFunctionLegend();
+  setTimeout(() => fitView(), 100);
+}
+
+function renderFunctionLegend() {
+  const legend = d3.select('#legend').html('');
+  legend.append('div').attr('class','legend-title').text('Functions');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Boxes = modules</span>');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Rows = functions</span>');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Curves = call relationships</span>');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Hover to highlight calls</span>');
+}
+
+// ============================================================
+// VIEW: MODULES
+// ============================================================
+function renderModulesView() {
+  gRoot.selectAll('*').remove();
+  d3.select('#concept-overlay').html('');
+
+  const moduleEntries = Object.entries(MODULES);
+  const cols = 5;
+  const boxW = 240, boxH = 100, gapX = 280, gapY = 140;
+  const positions = {};
+
+  moduleEntries.forEach(([file, m], i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    positions[file] = { x: col * gapX, y: row * gapY };
+  });
+
+  // Draw dependency arrows first
+  const arrowGroup = gRoot.append('g').attr('class','mod-arrows');
+  Object.entries(MODULE_DEPS).forEach(([src, targets]) => {
+    targets.forEach(tgt => {
+      if (positions[src] && positions[tgt]) {
+        const sx = positions[src].x + boxW / 2, sy = positions[src].y + boxH;
+        const tx = positions[tgt].x + boxW / 2, ty = positions[tgt].y;
+        arrowGroup.append('path')
+          .attr('d', `M${sx},${sy} C${sx},${sy+40} ${tx},${ty-40} ${tx},${ty}`)
+          .attr('fill', 'none').attr('stroke', '#334155').attr('stroke-width', 1)
+          .attr('marker-end', 'url(#arrow)').attr('opacity', 0.4);
+      }
+    });
+  });
+
+  // Draw module blocks
+  moduleEntries.forEach(([file, m], i) => {
+    const { x, y } = positions[file];
+    const g = gRoot.append('g').attr('transform', `translate(${x},${y})`)
+      .style('cursor', 'pointer')
+      .on('click', () => showDetail({ name: file, ...m }))
+      .on('mouseenter', function(e) {
+        d3.select(this).select('rect').attr('stroke', PHASE_COLORS[m.phase]).attr('stroke-width', 2);
+        // Highlight deps
+        arrowGroup.selectAll('path').attr('opacity', 0.1);
+        const related = MODULE_DEPS[file] || [];
+        const incoming = Object.entries(MODULE_DEPS).filter(([s,t]) => t.includes(file)).map(([s]) => s);
+        arrowGroup.selectAll('path').filter(function() {
+          const d = this.getAttribute('d');
+          return related.some(r => positions[r] && d.includes(`${positions[r].x + boxW/2}`)) ||
+                 incoming.some(r => positions[r] && d.includes(`${positions[r].x + boxW/2}`));
+        }).attr('opacity', 0.8).attr('stroke', PHASE_COLORS[m.phase]);
+        showTooltip(e, { name: file, desc: m.desc });
+      })
+      .on('mouseleave', function() {
+        d3.select(this).select('rect').attr('stroke', PHASE_COLORS[m.phase] + '44').attr('stroke-width', 1.5);
+        arrowGroup.selectAll('path').attr('opacity', 0.4).attr('stroke', '#334155');
+        hideTooltip();
+      });
+
+    g.append('rect').attr('width', boxW).attr('height', boxH).attr('rx', 10)
+      .attr('fill', PHASE_COLORS[m.phase] + '12')
+      .attr('stroke', PHASE_COLORS[m.phase] + '44').attr('stroke-width', 1.5);
+
+    // Left color bar
+    g.append('rect').attr('width', 4).attr('height', boxH).attr('rx', 2)
+      .attr('fill', PHASE_COLORS[m.phase]);
+
+    g.append('text').attr('x', 14).attr('y', 22).attr('font-size', 12).attr('font-weight', 700)
+      .attr('fill', '#e2e8f0').attr('font-family', 'inherit').text(file);
+
+    g.append('text').attr('x', 14).attr('y', 38).attr('font-size', 10)
+      .attr('fill', '#64748b').attr('font-family', 'inherit').text(m.category);
+
+    g.append('text').attr('x', 14).attr('y', 56).attr('font-size', 10)
+      .attr('fill', PHASE_COLORS[m.phase]).attr('font-family', 'inherit')
+      .text(m.functions.length + ' functions');
+
+    // Preview function names
+    const preview = m.functions.slice(0, 2).map(f => f.name).join(', ');
+    if (preview) {
+      g.append('text').attr('x', 14).attr('y', 74).attr('font-size', 9)
+        .attr('fill', '#475569').attr('font-family', 'inherit')
+        .text(preview.length > 35 ? preview.slice(0, 32) + '...' : preview);
+    }
+
+    // Import count badge
+    const depCount = (MODULE_DEPS[file] || []).length;
+    if (depCount > 0) {
+      g.append('circle').attr('cx', boxW - 16).attr('cy', 16).attr('r', 10)
+        .attr('fill', PHASE_COLORS[m.phase] + '33');
+      g.append('text').attr('x', boxW - 16).attr('y', 20).attr('text-anchor', 'middle')
+        .attr('font-size', 9).attr('fill', PHASE_COLORS[m.phase]).attr('font-family', 'inherit')
+        .text(depCount);
+    }
+  });
+
+  renderModuleLegend();
+  setTimeout(() => fitView(), 100);
+}
+
+function renderModuleLegend() {
+  const legend = d3.select('#legend').html('');
+  legend.append('div').attr('class','legend-title').text('Modules');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Boxes = Python modules</span>');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Arrows = import dependencies</span>');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Badge = # of imports</span>');
+  legend.append('div').attr('class','legend-item').html('<span style="color:var(--text3)">Hover to highlight deps</span>');
+}
+
+// ============================================================
+// SEARCH
+// ============================================================
+d3.select('#search').on('input', function() {
+  const q = this.value.toLowerCase().trim();
+  if (!q) {
+    gRoot.selectAll('g').style('opacity', 1);
+    gRoot.selectAll('rect, circle').attr('filter', null);
+    return;
+  }
+  gRoot.selectAll('g.flow-node, g.file-node, g.fn-nodes g').each(function(d) {
+    const data = d?.data || d;
+    const name = (data?.name || '').toLowerCase();
+    const mod = (data?.module || '').toLowerCase();
+    const match = name.includes(q) || mod.includes(q);
+    d3.select(this).style('opacity', match ? 1 : 0.12);
+  });
+});
+
+// ============================================================
+// VIEW SWITCHING
+// ============================================================
+d3.selectAll('.tab').on('click', function() {
+  const view = this.dataset.view;
+  d3.selectAll('.tab').classed('active', false);
+  d3.select(this).classed('active', true);
+  currentView = view;
+  stopAnimation();
+  d3.select('#detail-panel').classed('hidden', true);
+
+  // Show/hide animation button
+  d3.select('#btn-animate').style('display', view === 'flow' ? 'inline-block' : 'none');
+  d3.select('#btn-concepts').style('display', view === 'flow' ? 'inline-block' : 'none');
+
+  switch(view) {
+    case 'flow': renderFlowView(); break;
+    case 'files': renderFilesView(); break;
+    case 'functions': renderFunctionsView(); break;
+    case 'modules': renderModulesView(); break;
+  }
+});
+
+// ============================================================
+// CONTROLS
+// ============================================================
+d3.select('#btn-fit').on('click', fitView);
+d3.select('#btn-animate').on('click', startAnimation);
+d3.select('#play-btn').on('click', () => { if (animating) stopAnimation(); else startAnimation(); });
+d3.select('#btn-concepts').on('click', function() {
+  showConcepts = !showConcepts;
+  d3.select(this).classed('active', showConcepts);
+  renderConceptCards();
+});
+
+function fitView() {
+  const bounds = gRoot.node().getBBox();
+  if (!bounds.width || !bounds.height) return;
+  const cw = document.getElementById('canvas-wrap').clientWidth;
+  const ch = document.getElementById('canvas-wrap').clientHeight;
+  const scale = Math.min(cw / (bounds.width + 100), ch / (bounds.height + 100), 2) * 0.85;
+  const tx = cw / 2 - (bounds.x + bounds.width / 2) * scale;
+  const ty = ch / 2 - (bounds.y + bounds.height / 2) * scale;
+  svg.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+// ============================================================
+// INITIAL RENDER
+// ============================================================
+d3.select('#btn-concepts').classed('active', true);
+renderFlowView();
+</script>
+</body>
+</html>
